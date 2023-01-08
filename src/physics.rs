@@ -92,6 +92,7 @@ impl Cube {
         if side_length <= 0.0 {
             panic!("Attempted to instantiate cube of side length <= 0.");
         }
+        
         Cube {
             side_length: side_length,
             transform: Transform {
@@ -122,7 +123,7 @@ impl Cube {
         let vertices = vertices
             .iter()
             .map(|vertex| {
-                //p -> q * p * q^-1
+                // p -> q * p * q^-1
                 let rotation_results = (self.transform.quaternion * Quaternion::from(vertex))
                     * self.transform.quaternion.get_inverse();
                 [rotation_results.x, rotation_results.y, rotation_results.z]

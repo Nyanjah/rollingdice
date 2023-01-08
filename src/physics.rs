@@ -23,9 +23,11 @@ pub trait Transformable {
     fn transform_mut(&mut self) -> &mut Transform;
 
     fn translate(&mut self, vector: &[f64; 3]) {
-        for (mut pos, translation) in zip(self.transform_mut().position, vector) {
-            pos += translation;
+        for i in 0..3{
+            // Increment the position by the vector
+            self.transform_mut().position[i] += vector[i];
         }
+        
     }
 
     fn rotate(&mut self, quaternion: &Quaternion) {
@@ -131,5 +133,9 @@ impl Cube {
             .collect();
 
         return vertices;
+    }
+
+    pub fn side_length(&self) -> &f64 {
+        return &self.side_length;
     }
 }

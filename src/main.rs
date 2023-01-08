@@ -4,8 +4,8 @@ use minifb::*;
 use physics::*;
 use std::f64::consts::PI;
 
-const WIDTH: usize = 800;
-const HEIGHT: usize = 800;
+const WIDTH: usize = 720;
+const HEIGHT: usize = 720;
 const SECONDS_PER_FRAME: f32 = 0.02;
 
 struct Camera {
@@ -39,28 +39,22 @@ impl Camera {
 
     fn update_buffer(&mut self, world: &Vec<Cube>) {
         // Getting the (x,y) position of the top-left most point of the camera
-        let (x_0, y_0) = (
-            self.transform.position[0] - 0.5 * self.width as f64,
-            self.transform.position[1] + 0.5 * self.height as f64,
-        );
         for cube in &*world {
             let vertices = cube.get_vertices();
-
-
             let (x_0, y_0) = (self.transform.position[0], self.transform.position[1]);
             let top_left = (x_0 - 0.5*self.width as f64,y_0 + 0.5*self.height as f64);
             let bottom_right = (x_0 + 0.5*self.width as f64, y_0 - 0.5 * self.height as f64);
             // Bounds checking 
             for vertex in vertices.iter().filter(|vertex| {
-                vertex[0] < bottom_right.0 - 1.0 && vertex[0] > top_left.0 + 1.0
-                && vertex[1] < top_left.1 - 1.0 && vertex[1] > bottom_right.1 + 1.0
+                vertex[0] < bottom_right.0 - 2.0 && vertex[0] > top_left.0 + 2.0
+                && vertex[1] < top_left.1 - 2.0 && vertex[1] > bottom_right.1 + 2.0
             }) {
                 // Rounding down to get [x][y] pos on screen
                 let (x, y) = (
                     (vertex[0] - (x_0 - 0.5 * self.width as f64)).abs(),
                     (vertex[1] - (y_0 + 0.5 * self.height as f64)).abs(),
                 );
-                self.buffer[x as usize][y as usize] = 255 as u8;
+                self.buffer[y as usize][x as usize] = 255 as u8;
             }
         }
     }
@@ -101,35 +95,46 @@ fn main() {
     let mut world = Vec::new();
 
     for i in 1..=10000{
-        world.push(Cube::new(0.1*i as f64, &[0.0, 1.0, 0.0]
-            ,Quaternion::new(i as f64, &[0.0, 1.0, 0.0])))
+        world.push(Cube::new(0.0 + 000.1 * i as f64, &[0.0, 0.0, 0.0]
+            ,Quaternion::new(000.1 * i as f64, &[1.0, 1.0, 1.0])))
     }
 
     let mut window_buffer: Vec<u32> = Vec::new();
-    window.limit_update_rate(Some(std::time::Duration::from_secs_f32(SECONDS_PER_FRAME)));
-    while window.is_open() && !window.is_key_down(Key::Escape) {
-        for cube in &mut world {
-            let (x, y, z) = (
-                cube.transform().position[0],
-                cube.transform().position[1],
-                cube.transform().position[2],
-            );
-            cube.rotate(&Quaternion::new(PI / 60.0, &[0.0+x, 1.0+y, 0.0+z]));
-            //cube.rotate(&Quaternion::new(PI / 20.0, &[-1.0+x, -1.0+y, 1.0+z]));
-        }
-        camera1.update_buffer(&world);
+    //window.limit_update_rate(Some(std::time::Duration::from_secs_f32(SECONDS_PER_FRAME)));
+    loop{
+        if window.is_key_released(Key::X){
+            while window.is_open() && !window.is_key_down(Key::Escape) {
+                for cube in &mut world {
+                    let (x, y, z) = (
+                        cube.transform().position[0],
+                        cube.transform().position[1],
+                        cube.transform().position[2],
+                    );
 
-        for x in 0..WIDTH {
-            for y in 0..HEIGHT {
-                let pixel = camera1.buffer()[x][y] as u32;
-                window_buffer.push((pixel | pixel << 8 | pixel << 16) as u32)
+                    cube.rotate(&Quaternion::new( 10.0/ *cube.side_length(), &[1.0,
+                     if *cube.side_length() as usize %2 == 0 {1.0} else {-1.0} ,
+                      1.0]));
+                    
+                    
+                }
+                camera1.update_buffer(&world);
+
+                for x in 0..WIDTH {
+                    for y in 0..HEIGHT {
+                        let pixel = camera1.buffer()[x][y] as u32;
+                        window_buffer.push((pixel | pixel << 8 | pixel << 16) as u32)
+                    }
+                }
+
+                window
+                    .update_with_buffer(&window_buffer, WIDTH, HEIGHT)
+                    .unwrap();
+                camera1.clear_buffer();
+                window_buffer.clear();
             }
         }
-
-        window
-            .update_with_buffer(&window_buffer, WIDTH, HEIGHT)
-            .unwrap();
-        camera1.clear_buffer();
-        window_buffer.clear();
+        else {
+            window.update();
+        }
     }
 }

@@ -111,7 +111,7 @@ fn main() {
                         cube.transform().position[2],
                     );
 
-                    cube.rotate(&Quaternion::new( 10.0/ *cube.side_length(), &[1.0,
+                    cube.rotate(&Quaternion::new( 0.0001*cube.side_length(), &[1.0,
                      if *cube.side_length() as usize %2 == 0 {1.0} else {-1.0} ,
                       1.0]));
                     

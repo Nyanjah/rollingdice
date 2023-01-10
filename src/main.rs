@@ -4,8 +4,8 @@ use minifb::*;
 use physics::*;
 use std::f64::consts::PI;
 
-const WIDTH: usize = 720;
-const HEIGHT: usize = 720;
+const WIDTH: usize = 150;
+const HEIGHT: usize = 150;
 const SECONDS_PER_FRAME: f32 = 0.02;
 
 struct Camera {
@@ -42,12 +42,20 @@ impl Camera {
         for cube in &*world {
             let vertices = cube.get_vertices();
             let (x_0, y_0) = (self.transform.position[0], self.transform.position[1]);
-            let top_left = (x_0 - 0.5*self.width as f64,y_0 + 0.5*self.height as f64);
-            let bottom_right = (x_0 + 0.5*self.width as f64, y_0 - 0.5 * self.height as f64);
-            // Bounds checking 
+            let top_left = (
+                x_0 - 0.5 * self.width as f64,
+                y_0 + 0.5 * self.height as f64,
+            );
+            let bottom_right = (
+                x_0 + 0.5 * self.width as f64,
+                y_0 - 0.5 * self.height as f64,
+            );
+            // Bounds checking
             for vertex in vertices.iter().filter(|vertex| {
-                vertex[0] < bottom_right.0 - 2.0 && vertex[0] > top_left.0 + 2.0
-                && vertex[1] < top_left.1 - 2.0 && vertex[1] > bottom_right.1 + 2.0
+                vertex[0] < bottom_right.0 - 2.0
+                    && vertex[0] > top_left.0 + 2.0
+                    && vertex[1] < top_left.1 - 2.0
+                    && vertex[1] > bottom_right.1 + 2.0
             }) {
                 // Rounding down to get [x][y] pos on screen
                 let (x, y) = (
@@ -77,7 +85,7 @@ fn main() {
             borderless: false,
             title: true,
             resize: true,
-            scale: Scale::X1,
+            scale: Scale::X4,
             scale_mode: ScaleMode::Stretch,
             transparency: false,
             none: false,
@@ -87,53 +95,36 @@ fn main() {
     .unwrap_or_else(|e| {
         panic!("{}", e);
     });
-  
 
-    let mut camera1 = Camera::new(&[0.0, 0.0, 10.0], &WIDTH, &HEIGHT);
-   
+    let mut camera1 = Camera::new(&[0.0, 0.0, 1.0], &WIDTH, &HEIGHT);
 
     let mut world = Vec::new();
 
-    for i in 1..=10000{
-        world.push(Cube::new(0.0 + 000.1 * i as f64, &[0.0, 0.0, 0.0]
-            ,Quaternion::new(000.1 * i as f64, &[1.0, 1.0, 1.0])))
-    }
+        world.push(Cube::new(10.0,&[50.0, 0.0, 0.0],Quaternion::new(0.0, &[1.0, 1.0, 1.0])));
+        world.push(Cube::new(40.0,&[0.0, 0.0, 0.0],Quaternion::new(0.0, &[1.0, 1.0, 1.0])));
 
     let mut window_buffer: Vec<u32> = Vec::new();
     //window.limit_update_rate(Some(std::time::Duration::from_secs_f32(SECONDS_PER_FRAME)));
-    loop{
-        if window.is_key_released(Key::X){
+    loop {
+        if window.is_key_released(Key::X) {
             while window.is_open() && !window.is_key_down(Key::Escape) {
                 for cube in &mut world {
-                    let (x, y, z) = (
-                        cube.transform().position[0],
-                        cube.transform().position[1],
-                        cube.transform().position[2],
-                    );
-
-                    cube.rotate(&Quaternion::new( 0.0001*cube.side_length(), &[1.0,
-                     if *cube.side_length() as usize %2 == 0 {1.0} else {-1.0} ,
-                      1.0]));
-                    
-                    
+                    cube.rotate(&mut Quaternion::new(PI/200.0,&[0.0, 1.0, 1.0],));
                 }
                 camera1.update_buffer(&world);
-
                 for x in 0..WIDTH {
                     for y in 0..HEIGHT {
                         let pixel = camera1.buffer()[x][y] as u32;
                         window_buffer.push((pixel | pixel << 8 | pixel << 16) as u32)
                     }
                 }
-
                 window
                     .update_with_buffer(&window_buffer, WIDTH, HEIGHT)
                     .unwrap();
                 camera1.clear_buffer();
                 window_buffer.clear();
             }
-        }
-        else {
+        } else {
             window.update();
         }
     }

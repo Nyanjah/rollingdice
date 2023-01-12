@@ -24,7 +24,7 @@ fn main() {
             scale_mode: ScaleMode::Stretch,
             transparency: false,
             none: false,
-            topmost: false,
+            topmost: true,
         },
     )
     .unwrap_or_else(|e| {
@@ -33,18 +33,11 @@ fn main() {
 
     let mut camera1 = Camera::new(&[0.0, 0.0, 0.0], &WIDTH, &HEIGHT);
     let mut world = Vec::new(); 
-
-    // world.push(Cube::new(
-    //     10.0,
-    //     &[-50.0, 50.0, 0.0],
-    //     Quaternion::new(0.0, &[1.0, 1.0, 1.0]),
-    // ));  
-        world.push(Cube::new(
-            300.0,
-            &[0.0,0.0, 0.0],
-            Quaternion::new(5.0, &[1.0, 1.0, 0.0])));
     
-
+    world.push(Cube::new(
+        300.0,
+        &[0.0,0.0, 50.0],
+        Quaternion::new(5.0, &[1.0, 1.0, 100.0])));
 
     // Creating an empty window buffer for minifb to update the window with
     let mut window_buffer: Vec<u32> = Vec::new();

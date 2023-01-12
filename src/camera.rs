@@ -35,45 +35,6 @@ impl Camera {
         };
     }
 
-    pub fn update_buffer_with_vertices(&mut self, world: &Vec<Cube>) {
-        // Make sure the camera's buffer is empty
-        self.clear_buffer();
-        // Getting the (x,y) position of the top-left most point of the camera
-        for cube in &*world {
-            // Getting the vertices of the cube
-            let vertices = cube.get_vertices();
-            // Getting the positions of the center, top left, and bottom right of the camera grid
-            let (x_0, y_0) = (self.transform.position[0], self.transform.position[1]);
-            let top_left = (
-                x_0 - 0.5 * self.width as f64,
-                y_0 + 0.5 * self.height as f64,
-            );
-            let bottom_right = (
-                x_0 + 0.5 * self.width as f64,
-                y_0 - 0.5 * self.height as f64,
-            );
-            // Bounds checking vertices to make sure they land in the grid
-            for vertex in vertices
-                .iter()
-                .filter(|vertex| {
-                    vertex[0] < bottom_right.0 - 2.0
-                        && vertex[0] > top_left.0 + 2.0
-                        && vertex[1] < top_left.1 - 2.0
-                        && vertex[1] > bottom_right.1 + 2.0
-                })
-                .map(|vertex| -> (usize, usize) {
-                    // Mapping points from world to local screen layout (0,0) in top-left
-                    return (
-                        (vertex[0] - (x_0 - 0.5 * self.width as f64)).abs() as usize,
-                        (vertex[1] - (y_0 + 0.5 * self.height as f64)).abs() as usize,
-                    );
-                })
-            {
-                self.buffer[vertex.0 as usize][vertex.1 as usize] = 255 as u8;
-            }
-        }
-    }
-
     pub fn in_grid(&self, point: &[f64; 3]) -> bool {
         let (x_0, y_0) = (self.transform.position[0], self.transform.position[1]);
         let top_left = (
@@ -102,6 +63,7 @@ impl Camera {
         for cube in &*world {
             // Getting the vertices of the cube
             let mut surfaces = cube.get_tesselation();
+            println!("{}",surfaces.len());
             // Getting the position of the center of the camera grid
             let (x_0, y_0) = (self.transform.position[0], self.transform.position[1]);
             let surfaces: Vec<[[usize; 3]; 3]> = surfaces
@@ -121,8 +83,9 @@ impl Camera {
                             (surface[i][0] as f64 - (x_0 - 0.5 * self.width as f64)).abs() as usize,
                             (surface[i][1] as f64 - (y_0 + 0.5 * self.height as f64)).abs()
                                 as usize,
-                            255 - (self.transform.position[2] - surface[i][2]).abs()
-                                as usize,
+                            255 - (self.transform.position[2]
+                                - (surface[i][2] as f64).clamp(0.0, 255.0))
+                            .abs() as usize,
                         ]
                     }
                     return grid_surface;
@@ -131,33 +94,8 @@ impl Camera {
             // Applying the Bresenham algorithm to plot lines at the pixel granularity
             // Drawing the triangle:
             for surface in surfaces {
-                // Line P0->P1
-                self.plot_line(
-                    &surface[0][0],
-                    &surface[0][1],
-                    &surface[1][0],
-                    &surface[1][1],
-                    &surface[0][2],
-                    &surface[1][2],
-                );
-                // Line P1->P2
-                self.plot_line(
-                    &surface[1][0],
-                    &surface[1][1],
-                    &surface[2][0],
-                    &surface[2][1],
-                    &surface[1][2],
-                    &surface[2][2],
-                );
-                // Line P2->P0
-                self.plot_line(
-                    &surface[2][0],
-                    &surface[2][1],
-                    &surface[0][0],
-                    &surface[0][1],
-                    &surface[2][2],
-                    &surface[0][2],
-                );
+                println!("{}",surface.len());
+                self.draw_triangle(&surface);
             }
         }
     }
@@ -169,6 +107,89 @@ impl Camera {
         self.buffer = vec![vec![0; self.height]; self.width];
     }
 
+    fn draw_triangle(&mut self, surface: &[[usize; 3]; 3]) {
+        let point1 = surface[0];
+        let point2 = surface[1];
+        let point3 = surface[2];
+        // Getting bounds for the subsection of the screen the triangle is drawn to
+        let x_min = ((point1[0]).min(point2[0])).min(point3[0]);
+        let x_max = ((point1[0]).max(point2[0])).max(point3[0]);
+        let y_min = ((point1[1]).min(point2[1])).min(point3[1]);
+        let y_max = ((point1[1]).max(point2[1])).max(point3[1]);
+
+        // Making a temporary per-triangle buffer for intermediate processing
+        let mut traingle_buffer: Vec<Vec<u8>> = vec![vec![0; self.height]; self.width];
+
+        // Plotting the three lines that make up the surfaces boundary
+        // Line P1->P2
+        self.plot_line(
+            &point1[0],
+            &point1[1],
+            &point2[0],
+            &point2[1],
+            &point1[2],
+            &point2[2],
+            &mut traingle_buffer,
+        );
+        // Line P2->P3
+        self.plot_line(
+            &point2[0],
+            &point2[1],
+            &point3[0],
+            &point3[1],
+            &point2[2],
+            &point3[2],
+            &mut traingle_buffer,
+        );
+        // Line P3->P1
+        self.plot_line(
+            &point3[0],
+            &point3[1],
+            &point1[0],
+            &point1[1],
+            &point3[2],
+            &point1[2],
+            &mut traingle_buffer,
+        );
+
+        // Iterating over the sub-section the screen is drawn to and applying the scanline algorithm
+        for y in y_min..=y_max {
+            'draw_loop: for x in x_min..=x_max {
+                // If there is a pixel drawn at [x][y]
+                if traingle_buffer[x][y] != 0 {
+                    let first_pixel = (x, y);
+                    //println!("First: {first_pixel:#?}");
+                    for x in first_pixel.0 + 1..=x_max {
+                        if traingle_buffer[x][y] != 0 {
+                            let second_pixel = (x, y);
+                            //println!("Second: {second_pixel:#?}");
+                            // Plot the line between the two pixels
+                            self.plot_line(
+                                &first_pixel.0,
+                                &first_pixel.1,
+                                &second_pixel.0,
+                                &second_pixel.1,
+                                &(self.buffer[first_pixel.0][first_pixel.1] as usize),
+                                &(self.buffer[second_pixel.0][second_pixel.1] as usize),
+                                &mut traingle_buffer,
+                            );
+                            // Exit the loop for the current y-value
+                            break 'draw_loop;
+                        }
+                    }
+                }
+            }
+        }
+        // Inserting the triangle into the camera's buffer
+        for x in x_min..x_max {
+           for y in y_min..y_max{
+            if self.buffer[x][y] < traingle_buffer[x][y]{
+                self.buffer[x][y] = traingle_buffer[x][y];
+            }
+           }
+        }
+    }
+
     fn plot_line(
         &mut self,
         x_0: &usize,
@@ -177,6 +198,7 @@ impl Camera {
         y_1: &usize,
         dist_0: &usize,
         dist_1: &usize,
+        buffer: &mut Vec<Vec<u8>>,
     ) {
         let mut pixels_to_plot: Vec<(usize, usize, usize)> = Vec::new();
 
@@ -195,8 +217,7 @@ impl Camera {
         }
         for pixel in pixels_to_plot {
             // TODO: Implement z-buffer for depth and lerp between colors
-            self.buffer[pixel.0 as usize][pixel.1 as usize] = pixel.2 as u8;
-            
+            buffer[pixel.0 as usize][pixel.1 as usize] = pixel.2 as u8;
         }
     }
 }
@@ -224,11 +245,12 @@ fn plot_line_low(
         output.push((
             x as usize,
             y as usize,
-            lerp(
-                *dist_0 as f64,
-                *dist_1 as f64,
-                (x - x_0) as f64 / (x_1 - x_0) as f64,
-            ) as usize,
+            // lerp(
+            //     *dist_0 as f64,
+            //     *dist_1 as f64,
+            //     ((x - x_0) as f64).abs() / ((x_1 - x_0) as f64).abs(),
+            // ) as usize,
+            255,
         ));
         if D > 0 {
             y = y + y_i;
@@ -239,6 +261,7 @@ fn plot_line_low(
     }
     return output;
 }
+
 // Takes in two points and returns a vector of points to color in the raster
 fn plot_line_high(
     x_0: &usize,
@@ -262,11 +285,12 @@ fn plot_line_high(
         output.push((
             x as usize,
             y as usize,
-            lerp(
-                *dist_0 as f64,
-                *dist_1 as f64,
-                (y - *y_0) as f64 / (y_1 - y_0) as f64,
-            ) as usize,
+            // lerp(
+            //     *dist_0 as f64,
+            //     *dist_1 as f64,
+            //     ((y - *y_0) as f64).abs() / ((y_1 - y_0) as f64).abs(),
+            // ) as usize,
+            255,
         ));
         if d > 0 {
             x = x + x_i;

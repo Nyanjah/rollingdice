@@ -174,45 +174,6 @@ impl Cube {
         return output;
     }
 
-
-    // pub fn get_tesselation(&self) -> Vec<[f64; 3]> {
-    //     let mut tesselation: Vec<[[f64; 3];3]> = Vec::new();
-    //     let length = self.side_length / 2.0;
-    //     let (x_0, y_0, z_0) = (
-    //         self.transform.position[0],
-    //         self.transform.position[1],
-    //         self.transform.position[2],
-    //     );
-    //     // Initial state -> Rotation -> Translation -> Resulting Vertices
-    //     for x in [1.0, -1.0] {
-    //         for y in [-1.0, 1.0] {
-    //             for z in [-1.0, 1.0] {
-    //                 // Initial vertices 
-    //                 vertices.push([x as f64,y as f64,z as f64]);
-    //             }
-    //         }
-    //     }
-    //     // Applying the cube's stored rotation quaternion
-    //     let mut vertices:Vec<[f64;3]> = vertices
-    //         .iter()
-    //         .map(|vertex| {
-    //             // p -> q * p * q^-1
-    //             let rotation_results = (self.transform.quaternion * Quaternion::from(vertex))
-    //                 * self.transform.quaternion.get_inverse();
-    //             [rotation_results.x, rotation_results.y, rotation_results.z]
-    //         })
-    //         .collect();
-
-    //     // Applying the cube's stored position as a translation
-    //     for vertex in vertices.iter_mut(){
-    //         vertex[0] = vertex[0]*length + x_0;
-    //         vertex[1] = vertex[1]*length + y_0;
-    //         vertex[2] = vertex[2]*length + z_0;
-    //     }
-    //     return vertices;
-    // }
-
-
     pub fn side_length(&self) -> &f64 {
         return &self.side_length;
     }

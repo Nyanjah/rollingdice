@@ -63,7 +63,6 @@ impl Camera {
         for cube in &*world {
             // Getting the vertices of the cube
             let mut surfaces = cube.get_tesselation();
-            println!("{}",surfaces.len());
             // Getting the position of the center of the camera grid
             let (x_0, y_0) = (self.transform.position[0], self.transform.position[1]);
             let surfaces: Vec<[[usize; 3]; 3]> = surfaces
@@ -94,7 +93,6 @@ impl Camera {
             // Applying the Bresenham algorithm to plot lines at the pixel granularity
             // Drawing the triangle:
             for surface in surfaces {
-                println!("{}",surface.len());
                 self.draw_triangle(&surface);
             }
         }
@@ -108,18 +106,23 @@ impl Camera {
     }
 
     fn draw_triangle(&mut self, surface: &[[usize; 3]; 3]) {
-        let point1 = surface[0];
-        let point2 = surface[1];
-        let point3 = surface[2];
+        let mut point1 = surface[0];
+        let mut point2 = surface[1];
+        let mut point3 = surface[2];
+
         // Getting bounds for the subsection of the screen the triangle is drawn to
         let x_min = ((point1[0]).min(point2[0])).min(point3[0]);
         let x_max = ((point1[0]).max(point2[0])).max(point3[0]);
         let y_min = ((point1[1]).min(point2[1])).min(point3[1]);
         let y_max = ((point1[1]).max(point2[1])).max(point3[1]);
 
-        // Making a temporary per-triangle buffer for intermediate processing
-        let mut traingle_buffer: Vec<Vec<u8>> = vec![vec![0; self.height]; self.width];
+        for point in [&mut point1,&mut point2,&mut point3]{
+            point[0] -= x_min;
+            point[1] -= y_min;
+        }
 
+        // Making a temporary per-triangle buffer for intermediate processing
+        let mut triangle_buffer: Vec<Vec<u8>> = vec![vec![0; (y_max - y_min) + 1]; (x_max - x_min) + 1];
         // Plotting the three lines that make up the surfaces boundary
         // Line P1->P2
         self.plot_line(
@@ -129,7 +132,7 @@ impl Camera {
             &point2[1],
             &point1[2],
             &point2[2],
-            &mut traingle_buffer,
+            &mut triangle_buffer,
         );
         // Line P2->P3
         self.plot_line(
@@ -139,7 +142,7 @@ impl Camera {
             &point3[1],
             &point2[2],
             &point3[2],
-            &mut traingle_buffer,
+            &mut triangle_buffer,
         );
         // Line P3->P1
         self.plot_line(
@@ -149,29 +152,28 @@ impl Camera {
             &point1[1],
             &point3[2],
             &point1[2],
-            &mut traingle_buffer,
+            &mut triangle_buffer,
         );
 
-        // Iterating over the sub-section the screen is drawn to and applying the scanline algorithm
-        for y in y_min..=y_max {
-            'draw_loop: for x in x_min..=x_max {
-                // If there is a pixel drawn at [x][y]
-                if traingle_buffer[x][y] != 0 {
+        //Iterating over the sub-section the screen is drawn to and applying the scanline algorithm
+        for y in 0..=(y_max-y_min) {
+        'draw_loop:for x in 0..(x_max - x_min) {
+                // If there is a pixel drawn at [x][y] & not at [x+1][y]
+                if triangle_buffer[x][y] != 0 && triangle_buffer[x+1][y] == 0 {
                     let first_pixel = (x, y);
-                    //println!("First: {first_pixel:#?}");
-                    for x in first_pixel.0 + 1..=x_max {
-                        if traingle_buffer[x][y] != 0 {
-                            let second_pixel = (x, y);
-                            //println!("Second: {second_pixel:#?}");
+                    for x_i in (first_pixel.0 + 1)..(x_max-x_min) {
+                        // If there is a not pixel drawn at [x_i][y] and one drawn at [x_i+1][y] 
+                        if triangle_buffer[x_i][y] == 0 && triangle_buffer[x_i+1][y] != 0 {
+                            let second_pixel = (x_i+1, y);
                             // Plot the line between the two pixels
                             self.plot_line(
                                 &first_pixel.0,
                                 &first_pixel.1,
                                 &second_pixel.0,
                                 &second_pixel.1,
-                                &(self.buffer[first_pixel.0][first_pixel.1] as usize),
-                                &(self.buffer[second_pixel.0][second_pixel.1] as usize),
-                                &mut traingle_buffer,
+                                &(triangle_buffer[first_pixel.0][first_pixel.1] as usize),
+                                &(triangle_buffer[second_pixel.0][second_pixel.1] as usize),
+                                &mut triangle_buffer,
                             );
                             // Exit the loop for the current y-value
                             break 'draw_loop;
@@ -181,10 +183,10 @@ impl Camera {
             }
         }
         // Inserting the triangle into the camera's buffer
-        for x in x_min..x_max {
-           for y in y_min..y_max{
-            if self.buffer[x][y] < traingle_buffer[x][y]{
-                self.buffer[x][y] = traingle_buffer[x][y];
+        for x in 0..(x_max-x_min) {
+           for y in 0..(y_max-y_min){
+            if self.buffer[x+x_min][y+y_min] <= triangle_buffer[x][y]{
+                self.buffer[x+x_min][y+y_min] = triangle_buffer[x][y];
             }
            }
         }
@@ -215,6 +217,7 @@ impl Camera {
                 pixels_to_plot = plot_line_high(x_0, y_0, x_1, y_1, dist_0, dist_1);
             }
         }
+
         for pixel in pixels_to_plot {
             // TODO: Implement z-buffer for depth and lerp between colors
             buffer[pixel.0 as usize][pixel.1 as usize] = pixel.2 as u8;
@@ -245,12 +248,11 @@ fn plot_line_low(
         output.push((
             x as usize,
             y as usize,
-            // lerp(
-            //     *dist_0 as f64,
-            //     *dist_1 as f64,
-            //     ((x - x_0) as f64).abs() / ((x_1 - x_0) as f64).abs(),
-            // ) as usize,
-            255,
+            lerp(
+                *dist_0 as f64,
+                *dist_1 as f64,
+                ((x - x_0) as f64).abs() / ((x_1 - x_0) as f64).abs(),
+            ) as usize,
         ));
         if D > 0 {
             y = y + y_i;
@@ -285,12 +287,11 @@ fn plot_line_high(
         output.push((
             x as usize,
             y as usize,
-            // lerp(
-            //     *dist_0 as f64,
-            //     *dist_1 as f64,
-            //     ((y - *y_0) as f64).abs() / ((y_1 - y_0) as f64).abs(),
-            // ) as usize,
-            255,
+            lerp(
+                *dist_0 as f64,
+                *dist_1 as f64,
+                ((y - *y_0) as f64).abs() / ((y_1 - y_0) as f64).abs(),
+            ) as usize,
         ));
         if d > 0 {
             x = x + x_i;

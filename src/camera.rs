@@ -161,8 +161,8 @@ impl Camera {
                 // If there is a pixel drawn at [x][y] & not at [x+1][y]
                 if triangle_buffer[x][y] != 0 && triangle_buffer[x+1][y] == 0 {
                     let first_pixel = (x, y);
-                    for x_i in (first_pixel.0 + 1)..(x_max-x_min) {
-                        // If there is a not pixel drawn at [x_i][y] and one drawn at [x_i+1][y] 
+                    for x_i in ((first_pixel.0 + 1)..(x_max-x_min)).rev() {
+                        // If there is a not a pixel drawn at [x_i][y] and one drawn at [x_i+1][y] 
                         if triangle_buffer[x_i][y] == 0 && triangle_buffer[x_i+1][y] != 0 {
                             let second_pixel = (x_i+1, y);
                             // Plot the line between the two pixels
@@ -198,25 +198,26 @@ impl Camera {
         y_0: &usize,
         x_1: &usize,
         y_1: &usize,
-        dist_0: &usize,
         dist_1: &usize,
+        dist_0: &usize,
         buffer: &mut Vec<Vec<u8>>,
     ) {
-        let mut pixels_to_plot: Vec<(usize, usize, usize)> = Vec::new();
 
+        let pixels_to_plot:Vec<(usize, usize, usize)> = {
+            
         if (*y_1 as i32 - *y_0 as i32).abs() < (*x_1 as i32 - *x_0 as i32).abs() {
             if x_0 > x_1 {
-                pixels_to_plot = plot_line_low(x_1, y_1, x_0, y_0, dist_0, dist_1);
+                plot_line_low(x_1, y_1, x_0, y_0, dist_1, dist_0)
             } else {
-                pixels_to_plot = plot_line_low(x_0, y_0, x_1, y_1, dist_0, dist_1);
+                plot_line_low(x_0, y_0, x_1, y_1, dist_0, dist_1)
             }
         } else {
             if y_0 > y_1 {
-                pixels_to_plot = plot_line_high(x_1, y_1, x_0, y_0, dist_0, dist_1);
+                plot_line_high(x_1, y_1, x_0, y_0, dist_1, dist_0)
             } else {
-                pixels_to_plot = plot_line_high(x_0, y_0, x_1, y_1, dist_0, dist_1);
+                plot_line_high(x_0, y_0, x_1, y_1, dist_0, dist_1)
             }
-        }
+        }};
 
         for pixel in pixels_to_plot {
             // TODO: Implement z-buffer for depth and lerp between colors
@@ -242,7 +243,7 @@ fn plot_line_low(
         y_i = -1;
         dy = -1 * dy as i32;
     }
-    let mut D = 2 * dy - dx;
+    let mut d = 2 * dy - dx;
     let mut y = *y_0 as i32;
     for x in *x_0..*x_1 {
         output.push((
@@ -254,11 +255,11 @@ fn plot_line_low(
                 ((x - x_0) as f64).abs() / ((x_1 - x_0) as f64).abs(),
             ) as usize,
         ));
-        if D > 0 {
+        if d > 0 {
             y = y + y_i;
-            D = D + (2 * (dy - dx));
+            d = d + (2 * (dy - dx));
         } else {
-            D = D + 2 * dy;
+            d = d + 2 * dy;
         }
     }
     return output;

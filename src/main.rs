@@ -48,7 +48,9 @@ fn main() {
     while window.is_open() && !window.is_key_down(Key::Escape) {
         // Rotate every cube +PI/200 radians about the vector <0,1,1>
         for cube in &mut world {
-            cube.rotate(&mut Quaternion::new(PI / 300.0, &[0.5, 0.5, 0.5]));
+            cube.rotate(&mut Quaternion::new(PI / 300.0, &[0.5, 0.0, 0.0]));
+            cube.rotate(&mut Quaternion::new(PI / 600.0, &[0.0, 0.5, 0.0]));
+            cube.rotate(&mut Quaternion::new(PI / 900.0, &[0.0, 0.0, 0.5]));
         }
         // Take a snapshot with the camera
         camera1.update_buffer_with_surfaces(&world);

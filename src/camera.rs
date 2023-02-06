@@ -35,6 +35,8 @@ impl Camera {
         };
     }
 
+
+
     pub fn in_grid(&self, point: &[f64; 3]) -> bool {
         let (x_0, y_0) = (self.transform.position[0], self.transform.position[1]);
         let top_left = (
@@ -64,33 +66,64 @@ impl Camera {
             // Getting the vertices of the cube
             let mut surfaces = cube.get_tesselation();
             // Getting the position of the center of the camera grid
-            let (x_0, y_0) = (self.transform.position[0], self.transform.position[1]);
+            let (x_0, y_0, z_0) = (self.transform.position[0], self.transform.position[1], self.transform.position[2]);
+            // Getting the unit normal vector of the plane containing the camera grid
+            let norm = (self.transform.quaternion * Quaternion::from(&[0.0,0.0,1.0])) * self.transform.quaternion.get_inverse();
+            // Plane's equation: A(x-x0)+B(y-y0)+C(z-z0) = 0 where unit_norm = <A,B,C>
+            // Ax + By + Cz + d => d = - Ax0 - By0 - Cz0  
+            let d = -1.0*(norm.x*z_0 + norm.y*y_0 + norm.z*z_0);
+
             let surfaces: Vec<[[usize; 3]; 3]> = surfaces
                 .iter_mut()
-                // filtering out surfaces which shouldnt be rendered
-                .filter(|surface| {
-                    // Checking if all points in the surface are within the grid
-                    self.in_grid(&surface[0])
-                        && self.in_grid(&surface[1])
-                        && self.in_grid(&surface[2])
-                })
-                // Mapping the coordinates of the points which make up the surfaces to pixel-grid coords
-                .map(|surface| -> [[usize; 3]; 3] {
-                    let mut grid_surface: [[usize; 3]; 3] = [[0; 3]; 3];
-                    for i in 0..grid_surface.len() {
-                        grid_surface[i] = [
-                            (surface[i][0] as f64 - (x_0 - 0.5 * self.width as f64)).abs() as usize,
-                            (surface[i][1] as f64 - (y_0 + 0.5 * self.height as f64)).abs()
-                                as usize,
-                            255 - (self.transform.position[2]
-                                - (surface[i][2] as f64).clamp(0.0, 255.0))
-                            .abs() as usize,
-                        ]
+                // Projecting the points in the world onto the plane containing the raster
+                .map(|surface| -> &[[f64;3];3] {
+                    let mut plane_surface:[[f64;3];3] = [[0.0;3];3];
+                    // p' = p - (n * p + d ) x n
+                    for point in surface{
+                        let k = (d - norm.x*point[0] - norm.y*point[1] - norm.z*point[2])/(norm.x.powf(2.0) +norm.y.powf(2.0)+norm.z.powf(2.0));
+                        point[0] = point[0] + k * norm.x;
+                        point[1] = point[1] + k * norm.y;
+                        point[2] = point[2] + k * norm.z;
                     }
-                    return grid_surface;
+                    return surface
                 })
+                // Converting from globals coords to the raster's local coord system
+                .map(|surface| -> [[usize; 3]; 3]{
+
+                })
+
+
+
+
+
+
+
+
+
+
+                // // filtering out surfaces which shouldnt be rendered
+                // .filter(|surface| {
+                //     // Checking if all points in the surface are within the grid
+                //         self.in_grid(&surface[0])
+                //         && self.in_grid(&surface[1])
+                //         && self.in_grid(&surface[2])
+                // })
+                // // Mapping the coordinates of the points which make up the surfaces to pixel-grid coords
+                // .map(|surface| -> [[usize; 3]; 3] {
+                //     let mut grid_surface: [[usize; 3]; 3] = [[0; 3]; 3];
+                //     for i in 0..grid_surface.len() {
+                //         grid_surface[i] = [
+                //             (surface[i][0] as f64 - (x_0 - 0.5 * self.width as f64)).abs() as usize,
+                //             (surface[i][1] as f64 - (y_0 + 0.5 * self.height as f64)).abs()
+                //                 as usize,
+                //             255 - (self.transform.position[2]
+                //                 - (surface[i][2] as f64).clamp(0.0, 255.0))
+                //             .abs() as usize,
+                //         ]
+                //     }
+                //     return grid_surface;
+                // })
                 .collect();
-            // Applying the Bresenham algorithm to plot lines at the pixel granularity
             // Drawing the triangle:
             for surface in surfaces {
                 self.draw_triangle(&surface);
@@ -245,7 +278,7 @@ fn plot_line_low(
     }
     let mut d = 2 * dy - dx;
     let mut y = *y_0 as i32;
-    for x in *x_0..*x_1 {
+    for x in *x_0..=*x_1 {
         output.push((
             x as usize,
             y as usize,
@@ -284,7 +317,7 @@ fn plot_line_high(
     }
     let mut d = (2 * dx) - dy;
     let mut x: i32 = *x_0 as i32;
-    for y in *y_0..*y_1 {
+    for y in *y_0..=*y_1 {
         output.push((
             x as usize,
             y as usize,

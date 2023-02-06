@@ -165,7 +165,8 @@ impl Cube {
             output.push([vertices[2],vertices[6],vertices[7]]);
             output.push([vertices[0],vertices[4],vertices[5]]);
             output.push([vertices[0],vertices[1],vertices[5]]);
-            // EXTRA
+
+            // Additional surfaces for debugging purposes
             // output.push([vertices[4],vertices[7],vertices[5]]);
             // output.push([vertices[6],vertices[4],vertices[1]]);
             // output.push([vertices[3],vertices[1],vertices[5]]);

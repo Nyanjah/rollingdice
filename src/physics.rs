@@ -9,6 +9,7 @@ struct RigidBody {
     angular_velocity:[f64;3],
 }
 
+// Detect the collisions between cubes and return the pairs of cubes colliding
 fn detect_collisions(world:&Vec<Cube>) -> Vec<(Cube,Cube)>{
-    
+
 }

@@ -58,14 +58,18 @@ impl Quaternion {
             z: axis[2] * (angle / 2.0).sin() / magnitude,
         }
     }
-
     pub fn normalize(&mut self) {
         let magnitude = (self.angle.powf(2.0) + self.x.powf(2.0) + self.y.powf(2.0) + self.z.powf(2.0)).sqrt();
             self.angle =  self.angle / magnitude;
             self.x = self.x / magnitude;
             self.y = self.y / magnitude;
             self.z = self.z / magnitude;
-        
+    }
+    pub fn normalize_as_vector(&mut self) {
+        let magnitude = (self.x.powf(2.0) + self.y.powf(2.0) + self.z.powf(2.0)).sqrt();
+            self.x = self.x / magnitude;
+            self.y = self.y / magnitude;
+            self.z = self.z / magnitude;
     }
 
     pub fn get_inverse(&self) -> Quaternion {
@@ -76,6 +80,7 @@ impl Quaternion {
             z: -1.0 * self.z,
         }
     }
+    
 }
 
 impl From<&[f64; 3]> for Quaternion {

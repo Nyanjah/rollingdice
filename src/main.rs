@@ -30,12 +30,12 @@ fn main() {
         panic!("{}", e);
     });
 
-    let mut camera1 = Camera::new(&[0.0, 0.0, 0.0], &WIDTH, &HEIGHT);
+    let mut camera1 = Camera::new(&[0.0, 0.0, 100.0], &WIDTH, &HEIGHT);
     let mut world = Vec::new(); 
     
     world.push(Cube::new(
         150.0,
-        &[0.0,0.0, 50.0],
+        &[0.0,0.0, 700.0],
         Quaternion::new(PI/2.0, &[1.0, 1.0, 1.0])));
 
 

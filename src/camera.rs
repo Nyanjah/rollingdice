@@ -37,27 +37,15 @@ impl Camera {
 
 
 
-    pub fn in_grid(&self, point: &[f64; 3]) -> bool {
-        let (x_0, y_0) = (self.transform.position[0], self.transform.position[1]);
-        let top_left = (
-            x_0 - 0.5 * self.width as f64,
-            y_0 + 0.5 * self.height as f64,
-        );
-        let bottom_right = (
-            x_0 + 0.5 * self.width as f64,
-            y_0 - 0.5 * self.height as f64,
-        );
-        if point[0] < bottom_right.0
-            && point[0] > top_left.0
-            && point[1] < top_left.1
-            && point[1] > bottom_right.1
+    pub fn in_grid(&self, point: &[usize; 3]) -> bool {
+        if point[0] <= self.width && point[1] <= self.height && point[2] != 0
         {
             true
         } else {
+            println!("{:?}",point);
             false
         }
     }
-
     pub fn update_buffer_with_surfaces(&mut self, world: &Vec<Cube>) {
         // Make sure the camera's buffer is empty
         self.clear_buffer();
@@ -68,47 +56,54 @@ impl Camera {
             // Getting the position of the center of the camera grid
             let (x_0, y_0, z_0) = (self.transform.position[0], self.transform.position[1], self.transform.position[2]);
             // Getting the unit normal vector of the plane containing the camera grid
-            let norm = (self.transform.quaternion * Quaternion::from(&[0.0,0.0,1.0])) * self.transform.quaternion.get_inverse();
+            let mut norm = (self.transform.quaternion * Quaternion::from(&[0.0,0.0,1.0])) * self.transform.quaternion.get_inverse();
+            norm.normalize_as_vector();
+            let mut x_basis = (self.transform.quaternion * Quaternion::from(&[(self.width as f64 /2.0),0.0,0.0])) * self.transform.quaternion.get_inverse();
+            x_basis.normalize_as_vector();
+            let mut y_basis = (self.transform.quaternion * Quaternion::from(&[0.0,-1.0*(self.height as f64 /2.0),0.0])) * self.transform.quaternion.get_inverse();
+            y_basis.normalize_as_vector();
+            // Getting the top-left most vertex of the raster after applying it's stored translation and rotation
+            let top_left = (self.transform.quaternion * Quaternion::from(&[self.transform.position[0] - ( self.width as f64 /2.0 ),self.transform.position[1] + (self.height as f64 /2.0),self.transform.position[2]])) * self.transform.quaternion.get_inverse();
             // Plane's equation: A(x-x0)+B(y-y0)+C(z-z0) = 0 where unit_norm = <A,B,C>
             // Ax + By + Cz + d => d = - Ax0 - By0 - Cz0  
-            let d = -1.0*(norm.x*z_0 + norm.y*y_0 + norm.z*z_0);
-
-            let surfaces: Vec<[[usize; 3]; 3]> = surfaces
+            let d = -1.0*(norm.x*x_0 + norm.y*y_0 + norm.z*z_0);
+            let surfaces: Vec<[[usize;3];3]> = surfaces
                 .iter_mut()
                 // Projecting the points in the world onto the plane containing the raster
-                .map(|surface| -> &[[f64;3];3] {
-                    let mut plane_surface:[[f64;3];3] = [[0.0;3];3];
+                .map(|surface| -> [[usize;3];3] {
+                    let mut plane_surface:[[usize;3];3] = [[0;3];3];
                     // p' = p - (n * p + d ) x n
+                    let mut i = 0;
                     for point in surface{
                         let k = (d - norm.x*point[0] - norm.y*point[1] - norm.z*point[2])/(norm.x.powf(2.0) +norm.y.powf(2.0)+norm.z.powf(2.0));
+                        let original_point = point.clone();
                         point[0] = point[0] + k * norm.x;
                         point[1] = point[1] + k * norm.y;
                         point[2] = point[2] + k * norm.z;
+                        // Converting from globals coords to the raster's local coord system, with distance orthogonal to the raster plane
+                        // x position in raster
+                        point[0] = x_basis.x*(point[0]-top_left.x) + x_basis.y*(point[1]-top_left.y) + x_basis.z*(point[2]-top_left.z);
+                        // y position in raster
+                        point[1] = y_basis.x*(point[0]-top_left.x) + y_basis.y*(point[1]-top_left.y) + y_basis.z*(point[2]-top_left.z);
+                        // orthogonal distance from raster
+                        point[2] = norm.x*(original_point[0]-top_left.x) + norm.y*(original_point[1]-top_left.y) + norm.z*(original_point[2]-top_left.z);
+                        plane_surface[i] = [point[0] as usize, point[1] as usize, point[2] as usize];
+                        i = i + 1;
+                        //println!("{:?} --> {:?}",(original_point[0],original_point[1],original_point[2]),(point[0] as usize,point[1] as usize,point[2]as usize));
                     }
-                    return surface
-                })
-                // Converting from globals coords to the raster's local coord system
-                .map(|surface| -> [[usize; 3]; 3]{
-
+                    return plane_surface
                 })
 
 
+                // filtering out surfaces which shouldnt be rendered
+                .filter(|surface| {
+                    // Checking if all points in the surface are within the grid
+                        self.in_grid(&surface[0])
+                        && self.in_grid(&surface[1])
+                        && self.in_grid(&surface[2])
+                })
 
-
-
-
-
-
-
-
-                // // filtering out surfaces which shouldnt be rendered
-                // .filter(|surface| {
-                //     // Checking if all points in the surface are within the grid
-                //         self.in_grid(&surface[0])
-                //         && self.in_grid(&surface[1])
-                //         && self.in_grid(&surface[2])
-                // })
-                // // Mapping the coordinates of the points which make up the surfaces to pixel-grid coords
+                // Mapping the coordinates of the points which make up the surfaces to pixel-grid coords
                 // .map(|surface| -> [[usize; 3]; 3] {
                 //     let mut grid_surface: [[usize; 3]; 3] = [[0; 3]; 3];
                 //     for i in 0..grid_surface.len() {
@@ -123,11 +118,15 @@ impl Camera {
                 //     }
                 //     return grid_surface;
                 // })
+                
                 .collect();
+                //println!("{:?}",surfaces);
             // Drawing the triangle:
             for surface in surfaces {
                 self.draw_triangle(&surface);
             }
+            // Clear out the z-buffer for the frame
+            self.z_buffer =  vec![vec![0; self.height]; self.width];
         }
     }
 
@@ -187,7 +186,7 @@ impl Camera {
             &point1[2],
             &mut triangle_buffer,
         );
-
+        //println!("BUFFER: {:?}",triangle_buffer);
         //Iterating over the sub-section the screen is drawn to and applying the scanline algorithm
         for y in 0..=(y_max-y_min) {
         'draw_loop:for x in 0..(x_max - x_min) {
@@ -218,9 +217,11 @@ impl Camera {
         // Inserting the triangle into the camera's buffer
         for x in 0..(x_max-x_min) {
            for y in 0..(y_max-y_min){
-            if self.buffer[x+x_min][y+y_min] <= triangle_buffer[x][y]{
-                self.buffer[x+x_min][y+y_min] = triangle_buffer[x][y];
-            }
+            // If the pixel is closer (brighter) than the one in the z_buffer, add it to the z_buffer and draw it
+                if triangle_buffer[x][y] > self.z_buffer[x+x_min][y+y_min]{
+                    self.z_buffer[x+x_min][y+y_min] = triangle_buffer[x][y];
+                    self.buffer[x+x_min][y+y_min] = triangle_buffer[x][y];
+                }
            }
         }
     }
@@ -253,8 +254,9 @@ impl Camera {
         }};
 
         for pixel in pixels_to_plot {
-            // TODO: Implement z-buffer for depth and lerp between colors
-            buffer[pixel.0 as usize][pixel.1 as usize] = pixel.2 as u8;
+            // If the pixel is closer to the screen than what is stored in the z_buffer,
+            // overwrite the z-buffer entry and draw the pixel
+                buffer[pixel.0 as usize][pixel.1 as usize] = pixel.2 as u8;
         }
     }
 }

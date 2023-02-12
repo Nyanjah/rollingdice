@@ -69,6 +69,20 @@ impl Camera {
             let d = -1.0*(norm.x*x_0 + norm.y*y_0 + norm.z*z_0);
             let surfaces: Vec<[[usize;3];3]> = surfaces
                 .iter_mut()
+
+
+                //Filtering out surfaces containing vertices which lie behind the camera and should not be projected
+                //.filter(|surface| {
+                //     // Checking if all points in the surface are infront of the plane
+                //     for i in 0..3{
+                //         let point = surface[i];
+                //         if (norm.x * point[0] + norm.y * point[1] + norm.z * point[2]) < 0.0{
+                //             return false
+                //         }
+                //     }
+                //     return true
+                // })
+
                 // Projecting the points in the world onto the plane containing the raster
                 .map(|surface| -> [[usize;3];3] {
                     let mut plane_surface:[[usize;3];3] = [[0;3];3];
@@ -85,15 +99,14 @@ impl Camera {
                         point[0] = x_basis.x*(point[0]-top_left.x) + x_basis.y*(point[1]-top_left.y) + x_basis.z*(point[2]-top_left.z);
                         // y position in raster
                         point[1] = y_basis.x*(point[0]-top_left.x) + y_basis.y*(point[1]-top_left.y) + y_basis.z*(point[2]-top_left.z);
-                        // orthogonal distance from raster
-                        point[2] = norm.x*(original_point[0]-top_left.x) + norm.y*(original_point[1]-top_left.y) + norm.z*(original_point[2]-top_left.z);
+                        // orthogonal distance from raster mapped to a brightness 0-255
+                        point[2] = 255.0 - (norm.x*(original_point[0]-top_left.x) + norm.y*(original_point[1]-top_left.y) + norm.z*(original_point[2]-top_left.z)).clamp(0.0,255.0);
                         plane_surface[i] = [point[0] as usize, point[1] as usize, point[2] as usize];
                         i = i + 1;
                         //println!("{:?} --> {:?}",(original_point[0],original_point[1],original_point[2]),(point[0] as usize,point[1] as usize,point[2]as usize));
                     }
                     return plane_surface
                 })
-
 
                 // filtering out surfaces which shouldnt be rendered
                 .filter(|surface| {
@@ -254,8 +267,6 @@ impl Camera {
         }};
 
         for pixel in pixels_to_plot {
-            // If the pixel is closer to the screen than what is stored in the z_buffer,
-            // overwrite the z-buffer entry and draw the pixel
                 buffer[pixel.0 as usize][pixel.1 as usize] = pixel.2 as u8;
         }
     }

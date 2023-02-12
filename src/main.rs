@@ -34,8 +34,8 @@ fn main() {
     let mut world = Vec::new(); 
     
     world.push(Cube::new(
-        150.0,
-        &[0.0,0.0, 700.0],
+        170.0,
+        &[0.0,0.0, 100.0],
         Quaternion::new(PI/2.0, &[1.0, 1.0, 1.0])));
 
 
@@ -47,11 +47,11 @@ fn main() {
     // Main window loop
     while window.is_open() && !window.is_key_down(Key::Escape) {
         // Rotate every cube +PI/200 radians about the vector <0,1,1>
-        for cube in &mut world {
-            cube.rotate(&mut Quaternion::new(PI / 300.0, &[0.5, 0.0, 0.0]));
-            cube.rotate(&mut Quaternion::new(PI / 600.0, &[0.0, 0.5, 0.0]));
-            cube.rotate(&mut Quaternion::new(PI / 900.0, &[0.0, 0.0, 0.5]));
-        }
+        // for cube in &mut world {
+        //     cube.rotate(&mut Quaternion::new(PI / 300.0, &[0.5, 0.0, 0.0]));
+        //     cube.rotate(&mut Quaternion::new(PI / 600.0, &[0.0, 0.5, 0.0]));
+        //     cube.rotate(&mut Quaternion::new(PI / 900.0, &[0.0, 0.0, 0.5]));
+        // }
         // Take a snapshot with the camera
         camera1.update_buffer_with_surfaces(&world);
         //camera1.update_buffer_with_vertices(&world);
@@ -65,5 +65,31 @@ fn main() {
         }
         // Update the window with the prepared snapshot 
         window.update_with_buffer(&window_buffer, WIDTH, HEIGHT).unwrap();
+        if window.is_key_down(Key::Left){
+            camera1.translate(&[-1.0,0.0,0.0]);
+        }
+        if window.is_key_down(Key::Right){
+            camera1.translate(&[1.0,0.0,0.0]);
+        }
+        if window.is_key_down(Key::Up){
+            camera1.translate(&[0.0,1.0,0.0]);
+        }
+        if window.is_key_down(Key::Down){
+            camera1.translate(&[0.0,-1.0,0.0]);
+        }
+        if window.is_key_down(Key::W){
+            camera1.translate(&[0.0,0.0,1.0]);
+        }
+        if window.is_key_down(Key::S){
+            camera1.translate(&[0.0,0.0,-1.0]);
+        }
+        if window.is_key_down(Key::A){
+            camera1.rotate(&mut Quaternion::new(-PI/200.0, &[0.0, 1.0, 0.0]));
+        }
+        if window.is_key_down(Key::D){
+            camera1.rotate(&mut Quaternion::new(PI/200.0, &[0.0, 1.0, 0.0]));
+        }
+
+
     }
 }

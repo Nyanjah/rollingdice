@@ -5,8 +5,8 @@ use objects::*;
 use camera::*;
 use std::f64::consts::PI;
 
-const WIDTH: usize = 300;
-const HEIGHT: usize = 300;
+const WIDTH: usize = 800;
+const HEIGHT: usize = 800;
 const SECONDS_PER_FRAME: f32 = 0.02;
 
 fn main() {
@@ -30,12 +30,17 @@ fn main() {
         panic!("{}", e);
     });
 
-    let mut camera1 = Camera::new(&[0.0, 0.0, 100.0], &WIDTH, &HEIGHT);
+    let mut camera1 = Camera::new(&[0.0, 0.0, 0.0], &WIDTH, &HEIGHT);
     let mut world = Vec::new(); 
     
+    // world.push(Cube::new(
+    //     170.0,
+    //     &[0.0,0.0, 400.0],
+    //     Quaternion::new(PI/2.0, &[1.0, 1.0, 1.0])));
+    
     world.push(Cube::new(
-        170.0,
-        &[0.0,0.0, 100.0],
+        140.0,
+        &[0.0,0.0, 700.0],
         Quaternion::new(PI/2.0, &[1.0, 1.0, 1.0])));
 
 
@@ -47,11 +52,10 @@ fn main() {
     // Main window loop
     while window.is_open() && !window.is_key_down(Key::Escape) {
         // Rotate every cube +PI/200 radians about the vector <0,1,1>
-        // for cube in &mut world {
-        //     cube.rotate(&mut Quaternion::new(PI / 300.0, &[0.5, 0.0, 0.0]));
-        //     cube.rotate(&mut Quaternion::new(PI / 600.0, &[0.0, 0.5, 0.0]));
-        //     cube.rotate(&mut Quaternion::new(PI / 900.0, &[0.0, 0.0, 0.5]));
-        // }
+        for cube in &mut world {
+            // 
+            //cube.rotate(PI / 900.0, [0.0, 0.0, 0.5]);
+        }
         // Take a snapshot with the camera
         camera1.update_buffer_with_surfaces(&world);
         //camera1.update_buffer_with_vertices(&world);
@@ -78,16 +82,16 @@ fn main() {
             camera1.translate(&[0.0,-1.0,0.0]);
         }
         if window.is_key_down(Key::W){
-            camera1.translate(&[0.0,0.0,1.0]);
+            camera1.rotate(PI/200.0,[1.0, 0.0, 0.0]);
         }
         if window.is_key_down(Key::S){
-            camera1.translate(&[0.0,0.0,-1.0]);
+            camera1.rotate(-PI/200.0,[1.0, 0.0, 0.0]);
         }
         if window.is_key_down(Key::A){
-            camera1.rotate(&mut Quaternion::new(-PI/200.0, &[0.0, 1.0, 0.0]));
+            camera1.rotate(-PI/200.0,[0.0, 1.0, 0.0]);
         }
         if window.is_key_down(Key::D){
-            camera1.rotate(&mut Quaternion::new(PI/200.0, &[0.0, 1.0, 0.0]));
+            camera1.rotate(PI/200.0,[0.0, 1.0, 0.0]);
         }
 
 

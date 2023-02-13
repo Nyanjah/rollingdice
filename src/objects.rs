@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 #[derive(Copy, Clone)]
+#[derive(Debug)]
 pub struct Quaternion {
     pub angle: f64,
     pub x: f64,
@@ -29,9 +30,13 @@ pub trait Transformable {
         
     }
 
-    fn rotate(&mut self, quaternion: &mut Quaternion) {
+    fn rotate(&mut self, angle:f64, axis:[f64;3]) {
+        // Converting from global coords to local coords
+        // let pos = self.transform().position;
+        // let axis = [axis[0] + pos[0],axis[1] + pos[1],axis[2] + pos[2]];
+        let mut quaternion = Quaternion::new(angle,&axis);
         quaternion.normalize();
-        self.transform_mut().quaternion = self.transform_mut().quaternion * *quaternion;
+        self.transform_mut().quaternion = self.transform_mut().quaternion * quaternion;
     }
 }
 

@@ -31,17 +31,13 @@ fn main() {
     });
 
     let mut camera1 = Camera::new(&[0.0, 0.0, 0.0], &WIDTH, &HEIGHT);
+    camera1.rotate(PI, [0.0,1.0,0.0]);
     let mut world = Vec::new(); 
-    
-    // world.push(Cube::new(
-    //     170.0,
-    //     &[0.0,0.0, 400.0],
-    //     Quaternion::new(PI/2.0, &[1.0, 1.0, 1.0])));
-    
+
     world.push(Cube::new(
-        140.0,
-        &[0.0,0.0, 700.0],
-        Quaternion::new(PI/2.0, &[1.0, 1.0, 1.0])));
+        100.0,
+        &[0.0,0.0, -150.0],
+        Quaternion::new(0.0, &[1.0, 1.0, 1.0])));
 
 
     // Creating an empty window buffer for minifb to update the window with
@@ -53,8 +49,7 @@ fn main() {
     while window.is_open() && !window.is_key_down(Key::Escape) {
         // Rotate every cube +PI/200 radians about the vector <0,1,1>
         for cube in &mut world {
-            // 
-            //cube.rotate(PI / 900.0, [0.0, 0.0, 0.5]);
+            cube.rotate(PI / 900.0, [1.0, 0.2, 0.5]);
         }
         // Take a snapshot with the camera
         camera1.update_buffer_with_surfaces(&world);
@@ -67,31 +62,54 @@ fn main() {
                 window_buffer.push((pixel | pixel << 8 | pixel << 16) as u32)
             }
         }
-        // Update the window with the prepared snapshot 
+        // Update the window with the prepared frame
         window.update_with_buffer(&window_buffer, WIDTH, HEIGHT).unwrap();
-        if window.is_key_down(Key::Left){
+
+
+
+
+
+
+
+        if window.is_key_down(Key::A){
+            // Go left
             camera1.translate(&[-1.0,0.0,0.0]);
         }
-        if window.is_key_down(Key::Right){
+        if window.is_key_down(Key::D){
+            // Go right
             camera1.translate(&[1.0,0.0,0.0]);
         }
-        if window.is_key_down(Key::Up){
-            camera1.translate(&[0.0,1.0,0.0]);
-        }
-        if window.is_key_down(Key::Down){
-            camera1.translate(&[0.0,-1.0,0.0]);
-        }
         if window.is_key_down(Key::W){
-            camera1.rotate(PI/200.0,[1.0, 0.0, 0.0]);
+            // Go forwards
+            camera1.translate(&[0.0,0.0,-1.0]);
         }
         if window.is_key_down(Key::S){
+            // Go backwards
+            camera1.translate(&[0.0,0.0,1.0]);
+        }
+        if window.is_key_down(Key::Up){
+            // Look up
+            camera1.rotate(PI/200.0,[1.0, 0.0, 0.0]);
+        }
+        if window.is_key_down(Key::Down){
+            // Look down
             camera1.rotate(-PI/200.0,[1.0, 0.0, 0.0]);
         }
-        if window.is_key_down(Key::A){
+        if window.is_key_down(Key::Left){
+            // Look left
             camera1.rotate(-PI/200.0,[0.0, 1.0, 0.0]);
         }
-        if window.is_key_down(Key::D){
+        if window.is_key_down(Key::Right){
+            // Look right
             camera1.rotate(PI/200.0,[0.0, 1.0, 0.0]);
+        }
+        if window.is_key_down(Key::RightShift){
+            // Go down
+            camera1.translate(&[0.0,1.0,0.0]);
+        }
+        if window.is_key_down(Key::Space){
+            // Go up
+            camera1.translate(&[0.0,-1.0,0.0]);
         }
 
 

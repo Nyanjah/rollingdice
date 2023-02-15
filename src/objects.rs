@@ -27,8 +27,11 @@ pub trait Transformable {
             // Increment the position by the vector
             self.transform_mut().position[i] += vector[i];
         }
-        
     }
+
+    // fn local_translate(&vector: &[f64;3]){
+
+    // }
 
     fn rotate(&mut self, angle:f64, axis:[f64;3]) {
         // Converting from global coords to local coords
@@ -84,6 +87,13 @@ impl Quaternion {
             y: -1.0 * self.y,
             z: -1.0 * self.z,
         }
+    }
+    pub fn to_vector(&self) -> [f64;3]{
+        let mut vector = [0.0;3];
+        vector[0] = self.x;
+        vector[1] = self.y;
+        vector[2] = self.z;
+        return vector
     }
     
 }

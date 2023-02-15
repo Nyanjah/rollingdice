@@ -20,7 +20,6 @@ pub fn lerp(a: f64, b: f64, t: f64) -> f64 {
     return a * t + b * (1.0 - t);
 }
 
-
 impl Camera {
     pub fn new(position: &[f64; 3], width: &usize, height: &usize) -> Self {
         return Camera {
@@ -35,116 +34,107 @@ impl Camera {
         };
     }
 
-
-
-    pub fn in_grid(&self, point: &[f64; 3]) -> bool {
-        if point[0] as usize <= self.width && point[0] as usize !=0 && point[1] as usize <= self.height && point[1] as usize != 0 
-        && point[2] > 0.0
-        {
-            true
-        } else {
-            //println!("CULLED: z = {}",point[2]);
-            false
-        }
+    pub fn in_view(&self, point: &[f64; 3]) -> bool {
+        let (x,y,z) = (point[0],point[1],point[2]);
+        // x and y values should be withing [-1,1]
+        if 
+        //x >= -1.0 && x <= 1.0 && y >= -1.0 && y <= 1.0 
+        // z coord should be negative, otherwise it is behind the camera
+        //&& 
+        z < 0.0 {true}
+        else {
+        println!("{:?}",point);
+        false} // Otherwise they are outside the field of view
     }
+
     pub fn update_buffer_with_surfaces(&mut self, world: &Vec<Cube>) {
         // Make sure the camera's buffer is empty
         self.clear_buffer();
         // Getting the (x,y) position of the top-left most point of the camera
         for cube in &*world {
-            // Getting the vertices of the cube
+
+            // Getting the surfaces of the cube
             let mut surfaces = cube.get_tesselation();
-            // Getting the position of the center of the camera grid
+
+            // Getting the position of the viewing frustum
             let (x_0, y_0, z_0) = (self.transform.position[0], self.transform.position[1], self.transform.position[2]);
-            // Getting the unit normal vector of the plane containing the camera grid
-            let mut norm = (self.transform.quaternion * Quaternion::from(&[0.0,0.0,1.0])) * self.transform.quaternion.get_inverse();
-            norm.normalize_as_vector();
+
+            // Getting the basis vectors of the camera's coordinate system
             let mut x_basis = (self.transform.quaternion * Quaternion::from(&[1.0,0.0,0.0])) * self.transform.quaternion.get_inverse();
             x_basis.normalize_as_vector();
-            let mut y_basis = (self.transform.quaternion * Quaternion::from(&[0.0,-1.0,0.0])) * self.transform.quaternion.get_inverse();
+            let mut y_basis = (self.transform.quaternion * Quaternion::from(&[0.0,1.0,0.0])) * self.transform.quaternion.get_inverse();
             y_basis.normalize_as_vector();
-           
+            let mut z_basis = (self.transform.quaternion * Quaternion::from(&[0.0,0.0,-1.0])) * self.transform.quaternion.get_inverse();
+            z_basis.normalize_as_vector();
+            // Note: The raster's normal vector is the negative of the z_basis because the camera's line of sight is along it's -z axis.
             // Getting the top-left most vertex of the raster after applying it's stored translation and rotation
-            let top_left = (self.transform.quaternion * Quaternion::from(&[self.transform.position[0] - ( self.width as f64 /2.0 ),self.transform.position[1] + (self.height as f64 /2.0),self.transform.position[2]])) * self.transform.quaternion.get_inverse();
+
             // Plane's equation: A(x-x0)+B(y-y0)+C(z-z0) = 0 where unit_norm = <A,B,C>
             // Ax + By + Cz + d => d = - Ax0 - By0 - Cz0  
-            let d = -1.0*(norm.x*x_0 + norm.y*y_0 + norm.z*z_0);
-            println!("n = <{},{},{}>",norm.x,norm.y,norm.z);
             let surfaces: Vec<[[usize;3];3]> = surfaces
                 .iter_mut()
-                // Projecting the points in the world onto the plane containing the raster
+                // Get point coords w.r.t to the camera's position 
+                // ( It has an inverted z-axis because its line of sight is positioned along the -z axis...)
+                // So Vertex' = ( Vertex - V_0 ) with an inverted z-component
                 .map(|surface| -> [[f64;3];3] {
                     let mut plane_surface:[[f64;3];3] = [[0.0;3];3];
-                    // p' = p - (n * p + d ) x n
                     let mut i = 0;
                     for point in surface{
-                        //let k = (d - norm.x*point[0] - norm.y*point[1] - norm.z*point[2])/(norm.x.powf(2.0) +norm.y.powf(2.0)+norm.z.powf(2.0));
-                        //let original_point = point.clone();
-                        // point[0] = point[0] + k * norm.x;
-                        // point[1] = point[1] + k * norm.y;
-                        // point[2] = point[2] + k * norm.z;
-                        // Converting from globals coords to the raster's local coord system, with distance orthogonal to the raster plane
-                        // x position in raster
-                        point[0] = x_basis.x*(point[0]-top_left.x) + x_basis.y*(point[1]-top_left.y) + x_basis.z*(point[2]-top_left.z);
-                        // y position in raster
-                        point[1] = y_basis.x*(point[0]-top_left.x) + y_basis.y*(point[1]-top_left.y) + y_basis.z*(point[2]-top_left.z);
-                        //point[2] = norm.x*(original_point[0]-top_left.x) + norm.y*(original_point[1]-top_left.y) + norm.z*(original_point[2]-top_left.z);
-                        point[2] = norm.x*(point[0]-top_left.x) + norm.y*(point[1] - top_left.y) + norm.z*(point[2] - top_left.z);
-                        plane_surface[i] = [point[0], point[1], point[2]];
+                        // Getting the points relative to the camera's position
+                        point[0] -= x_0;
+                        point[1] -= y_0; 
+                        point[2] -= z_0;
+                        let mut new_point = [0.0;3];
+                        // Swapping from world coords to camera coords
+
+                        // x = V' * x_basis
+                        new_point[0] = x_basis.x * point[0] + x_basis.y * point[1] + x_basis.z * point[2];
+                        // y = V' * y_basis
+                        new_point[1] = y_basis.x * point[0] + y_basis.y * point[1] + y_basis.z * point[2];
+                        // z = V' * z_basis
+                        new_point[2] = z_basis.x * point[0] + z_basis.y * point[1] + z_basis.z * point[2];
+
+                        // PERSPECTIVE DIVIDE STEP
+                        new_point[0] = new_point[0] / ( -1.0 * new_point[2]);
+                        new_point[1] = new_point[1] / ( -1.0 * new_point[2]);
+                        // Creating the new surface using the new points
+                        plane_surface[i] = [new_point[0], new_point[1], new_point[2]];
+                        // Note: All points in the field of view should lie withing a [-1,1] square.
                         i = i + 1;
-                        //println!("{:?} --> {:?}",(original_point[0],original_point[1],original_point[2]),(point[0] as usize,point[1] as usize,point[2]as usize));
                     }
-                    //println!("z = {}",plane_surface[0][2]);
                     return plane_surface
                 })
 
-                // filtering out surfaces which shouldnt be rendered
+                // filtering out surfaces which are outside the field of view
                 .filter(|surface| {
                     // Checking if all points in the surface are within the grid
-                           self.in_grid(&surface[0])
-                        && self.in_grid(&surface[1])
-                        && self.in_grid(&surface[2])
+                           self.in_view(&surface[0])
+                        && self.in_view(&surface[1])
+                        && self.in_view(&surface[2])
                 })
-
-                // Adjusting for alpha values and converting to usize
-
+                
+                // Converting from NDC (Normalized Device Coordinates) to screen coordinates
+                // and setting a temporary alpha value to the pixels in the surface directly
                 .map(|surface| -> [[usize;3];3]{
-                    let mut grid_surface:[[usize;3];3] = [[0;3];3]; 
+                    let mut grid_surface:[[usize;3];3] = [[0;3];3];
+                    //println!("{:?}",surface); 
                     let mut i = 0;
                     for point in surface{
-                        grid_surface[i][0] = point[0] as usize;
-                        grid_surface[i][1] = point[1] as usize;
-                        // orthogonal distance from raster mapped to a brightness 0-255
-                        // grid_surface[i][2] = 255 - (point[1]).clamp(0.0,255.0) as usize;   
-                        grid_surface[i][2] = 255;
+                        // X-values
+                        grid_surface[i][0] = ((point[0] * self.width as f64/2.0) + self.width as f64/2.0) as usize;
+                        // Y-values
+                        grid_surface[i][1] = ((point[1] * self.height as f64/2.0) + self.height as f64/2.0) as usize;
+                        //orthogonal distance from raster mapped to a brightness 0-255
+                        grid_surface[i][2] = 255 - (point[2].abs()).clamp(0.0,255.0) as usize; 
+                        //grid_surface[i][2] = 255;  
                         i = i + 1;
                     }
-                    
                     return grid_surface
-                })
-
-
-                // Mapping the coordinates of the points which make up the surfaces to pixel-grid coords
-                // .map(|surface| -> [[usize; 3]; 3] {
-                //     let mut grid_surface: [[usize; 3]; 3] = [[0; 3]; 3];
-                //     for i in 0..grid_surface.len() {
-                //         grid_surface[i] = [
-                //             (surface[i][0] as f64 - (x_0 - 0.5 * self.width as f64)).abs() as usize,
-                //             (surface[i][1] as f64 - (y_0 + 0.5 * self.height as f64)).abs()
-                //                 as usize,
-                //             255 - (self.transform.position[2]
-                //                 - (surface[i][2] as f64).clamp(0.0, 255.0))
-                //             .abs() as usize,
-                //         ]
-                //     }
-                //     return grid_surface;
-                // })
-                
+                })                
                 .collect();
             
             // Drawing the triangle:
-            for surface in surfaces {
-                
+            for surface in surfaces {   
                 self.draw_triangle(&surface);
             }
             // Clear out the z-buffer for the frame
@@ -176,7 +166,8 @@ impl Camera {
         }
 
         // Making a temporary per-triangle buffer for intermediate processing
-        let mut triangle_buffer: Vec<Vec<u8>> = vec![vec![0; (y_max - y_min) + 1]; (x_max - x_min) + 1];
+        // Stores the u8 (0-255) alpha value and a flag for if there is a pixel present at the location
+        let mut triangle_buffer: Vec<Vec<(u8,bool)>> = vec![vec![(0,false); (y_max - y_min) + 1]; (x_max - x_min) + 1];
         // Plotting the three lines that make up the surfaces boundary
         // Line P1->P2
         self.plot_line(
@@ -213,11 +204,11 @@ impl Camera {
         for y in 0..=(y_max-y_min) {
         'draw_loop:for x in 0..(x_max - x_min) {
                 // If there is a pixel drawn at [x][y] & not at [x+1][y]
-                if triangle_buffer[x][y] != 0 && triangle_buffer[x+1][y] == 0 {
+                if triangle_buffer[x][y].1 == true && triangle_buffer[x+1][y].1 == false {
                     let first_pixel = (x, y);
                     for x_i in ((first_pixel.0 + 1)..(x_max-x_min)).rev() {
                         // If there is a not a pixel drawn at [x_i][y] and one drawn at [x_i+1][y] 
-                        if triangle_buffer[x_i][y] == 0 && triangle_buffer[x_i+1][y] != 0 {
+                        if triangle_buffer[x_i][y].1 == false && triangle_buffer[x_i+1][y].1 == true {
                             let second_pixel = (x_i+1, y);
                             // Plot the line between the two pixels
                             self.plot_line(
@@ -225,8 +216,8 @@ impl Camera {
                                 &first_pixel.1,
                                 &second_pixel.0,
                                 &second_pixel.1,
-                                &(triangle_buffer[first_pixel.0][first_pixel.1] as usize),
-                                &(triangle_buffer[second_pixel.0][second_pixel.1] as usize),
+                                &(triangle_buffer[first_pixel.0][first_pixel.1].0 as usize),
+                                &(triangle_buffer[second_pixel.0][second_pixel.1].0 as usize),
                                 &mut triangle_buffer,
                             );
                             // Exit the loop for the current y-value
@@ -237,12 +228,14 @@ impl Camera {
             }
         }
         // Inserting the triangle into the camera's buffer
-        for x in 0..(x_max-x_min) {
-           for y in 0..(y_max-y_min){
+        for x in 1..(x_max-x_min) {
+            if x + x_min >= self.width {break}
+            for y in 1..(y_max-y_min){
+            if y + y_min >= self.height {break}
             // If the pixel is closer (brighter) than the one in the z_buffer, add it to the z_buffer and draw it
-                if triangle_buffer[x][y] > self.z_buffer[x+x_min][y+y_min]{
-                    self.z_buffer[x+x_min][y+y_min] = triangle_buffer[x][y];
-                    self.buffer[x+x_min][y+y_min] = triangle_buffer[x][y];
+                if triangle_buffer[x][y].0 > self.z_buffer[x+x_min][y+y_min]{
+                    self.z_buffer[x+x_min][y+y_min] = triangle_buffer[x][y].0;
+                    self.buffer[x+x_min][y+y_min] = triangle_buffer[x][y].0;
                 }
            }
         }
@@ -256,7 +249,7 @@ impl Camera {
         y_1: &usize,
         alpha_1: &usize,
         apha_0: &usize,
-        buffer: &mut Vec<Vec<u8>>,
+        buffer: &mut Vec<Vec<(u8,bool)>>,
     ) {
 
         let pixels_to_plot:Vec<(usize, usize, usize)> = {
@@ -276,7 +269,11 @@ impl Camera {
         }};
 
         for pixel in pixels_to_plot {
-                buffer[pixel.0 as usize][pixel.1 as usize] = pixel.2 as u8;
+            // Drawing the pixel to the buffer
+            buffer[pixel.0 as usize][pixel.1 as usize].0 = pixel.2 as u8;
+            // Setting the pixel_present flag to True
+            buffer[pixel.0 as usize][pixel.1 as usize].1 = true;
+
         }
     }
 }

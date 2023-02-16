@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-
+use tobj::*;
 #[derive(Copy, Clone)]
 #[derive(Debug)]
 pub struct Quaternion {
@@ -8,9 +8,10 @@ pub struct Quaternion {
     pub y: f64,
     pub z: f64,
 }
-pub struct Cube {
-    side_length: f64,
+pub struct Object {
+    scale: f64,
     transform: Transform,
+    surfaces: Vec<[[f64;3];3]>
 }
 
 pub struct Transform {
@@ -109,7 +110,7 @@ impl From<&[f64; 3]> for Quaternion {
     }
 }
 
-impl Transformable for Cube {
+impl Transformable for Object {
     fn transform(&self) -> &Transform {
         &self.transform
     }
@@ -118,84 +119,93 @@ impl Transformable for Cube {
     }
 }
 
-impl Cube {
-    pub fn new(side_length: f64, position: &[f64; 3], quaternion: Quaternion) -> Self {
-        if side_length <= 0.0 {
+impl Object {
+    pub fn new(scale: f64, position: &[f64; 3], quaternion: Quaternion, path:String) -> Self {
+        if scale <= 0.0 {
             panic!("Attempted to instantiate cube of side length <= 0.");
         }
-        return Cube {
-            side_length: side_length,
+        // Loading the surfaces from the object data   
+        let (models,_materials) = load_obj(path, &LoadOptions {triangulate: true, ..Default::default()}).unwrap();
+        let mesh = &models[0].mesh;
+        let mut initial_surfaces: Vec<[[f64;3];3]> = Vec::new();
+        let mut index = 0;
+        while index < mesh.indices.len(){
+
+            let vertex1 = [
+            mesh.positions[3 * mesh.indices[index] as usize ] as f64,
+            mesh.positions[3 * mesh.indices[index] as usize+ 1] as f64,
+            mesh.positions[3 * mesh.indices[index] as usize+ 2] as f64
+            ];
+            let vertex2 = [
+            mesh.positions[3 * mesh.indices[index + 1] as usize ] as f64,
+            mesh.positions[3 * mesh.indices[index + 1] as usize  + 1] as f64,
+            mesh.positions[3 * mesh.indices[index + 1] as usize  + 2] as f64
+            ];
+            let vertex3 = [
+            mesh.positions[3 * mesh.indices[index + 2] as usize ] as f64,
+            mesh.positions[3 * mesh.indices[index + 2] as usize  + 1] as f64,
+            mesh.positions[3 * mesh.indices[index + 2] as usize  + 2] as f64
+            ];
+            initial_surfaces.push([vertex1,vertex2,vertex3]);
+            index = index + 3;
+        }
+
+        return Object {
+            scale: scale,
             transform: Transform {
                 position: *position,
                 quaternion: quaternion,
             },
+            surfaces: initial_surfaces,
         }
     }
 
-    pub fn get_vertices(&self) -> Vec<[f64; 3]> {
-        let mut vertices: Vec<[f64; 3]> = Vec::new();
-        let length = self.side_length / 2.0;
-        let (x_0, y_0, z_0) = (
-            self.transform.position[0],
-            self.transform.position[1],
-            self.transform.position[2],
-        );
-        // Initial state -> Rotation -> Translation -> Resulting Vertices
-        for x in [1.0, -1.0] {
-            for y in [-1.0, 1.0] {
-                for z in [-1.0, 1.0] {
-                    // Initial vertices 
-                    vertices.push([x as f64,y as f64,z as f64]);
-                }
-            }
-        }
-        // Applying the cube's stored rotation quaternion
-        let mut vertices:Vec<[f64;3]> = vertices
-            .iter()
-            .map(|vertex| {
-                // p -> q * p * q^-1
-                let rotation_results = (self.transform.quaternion * Quaternion::from(vertex))
-                    * self.transform.quaternion.get_inverse();
-                [rotation_results.x, rotation_results.y, rotation_results.z]
-            })
-            .collect();
+    pub fn get_surfaces(&self) -> Vec<[[f64;3];3]>{
+        let (x,y,z) = (self.transform.position[0],self.transform.position[1],self.transform.position[2]);
+        // Initial state -> Rotation -> Translation -> Scaling -> Resulting (surface) Vertices
 
-        // Applying the cube's stored position as a translation
-        for vertex in vertices.iter_mut(){
-            vertex[0] = vertex[0]*length + x_0;
-            vertex[1] = vertex[1]*length + y_0;
-            vertex[2] = vertex[2]*length + z_0;
-        }
-        return vertices;
+        // Rotating
+        let surfaces = self.surfaces.iter().map(|surface|{
+            // p -> q * p * q^-1
+            let rotated_surface = [
+                // v1 - > v1'
+                ((self.transform.quaternion * Quaternion::from(&surface[0])) *self.transform.quaternion.get_inverse()).to_vector(),
+                // v2 -> v2'
+                ((self.transform.quaternion * Quaternion::from(&surface[1])) *self.transform.quaternion.get_inverse()).to_vector(),
+                // v3 -> v3'
+                ((self.transform.quaternion * Quaternion::from(&surface[2])) *self.transform.quaternion.get_inverse()).to_vector()
+            ];
+            return rotated_surface;
+        })
+        // Translating
+        .map(|surface|{
+            let translated_surface = [
+                // v1 - > v1 + pos 
+                [surface[0][0] + x,surface[0][1] + y,surface[0][2] + z],
+                // v2 -> v2 + pos
+                [surface[1][0] + x,surface[1][1] + y,surface[1][2] + z],
+                // v3 -> v3 + pos
+                [surface[2][0] + x,surface[2][1] + y,surface[2][2] + z]
+                    
+            ];
+            return translated_surface;
+        })
+        // Scaling
+        .map(|surface|{
+            let scaled_surface = [
+                // v1 - > v1 * SCALE
+                [surface[0][0] * self.scale,surface[0][1] * self.scale,surface[0][2] * self.scale],
+                // v2 -> v2 * SCALE
+                [surface[1][0] * self.scale,surface[1][1] * self.scale,surface[1][2] * self.scale],
+                // v3 -> v3 * SCALE
+                [surface[2][0] * self.scale,surface[2][1] * self.scale,surface[2][2] * self.scale]
+                    
+            ];
+            return scaled_surface;
+        })
+        .collect();
+        //println!("{:?}",surfaces);
+        return surfaces;
     }
 
-    pub fn get_tesselation(&self) -> Vec<([[f64;3];3])>{
-        let vertices = self.get_vertices();
-        let mut output = Vec::new();
-            // The tesselation of a cube returns 12 surfaces 
-            output.push([vertices[0],vertices[2],vertices[3]]);
-            output.push([vertices[0],vertices[1],vertices[3]]);
-            output.push([vertices[4],vertices[5],vertices[6]]);
-            output.push([vertices[5],vertices[6],vertices[7]]);
-            output.push([vertices[1],vertices[5],vertices[7]]);
-            output.push([vertices[1],vertices[3],vertices[7]]);
-            output.push([vertices[0],vertices[2],vertices[4]]);
-            output.push([vertices[2],vertices[4],vertices[6]]);
-            output.push([vertices[2],vertices[3],vertices[7]]);
-            output.push([vertices[2],vertices[6],vertices[7]]);
-            output.push([vertices[0],vertices[4],vertices[5]]);
-            output.push([vertices[0],vertices[1],vertices[5]]);
-
-            // Additional surfaces for debugging purposes
-            // output.push([vertices[4],vertices[7],vertices[5]]);
-            // output.push([vertices[6],vertices[4],vertices[1]]);
-            // output.push([vertices[3],vertices[1],vertices[5]]);
-            // output.push([vertices[6],vertices[3],vertices[7]]);
-            // output.push([vertices[4],vertices[1],vertices[5]]);
-        return output;
-    }
-
-    pub fn side_length(&self) -> &f64 {
-        return &self.side_length;
-    }
 }

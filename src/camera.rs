@@ -43,18 +43,17 @@ impl Camera {
         //&& 
         z < -0.0 {true}
         else {
-        println!("{:?}",point);
         false} // Otherwise they are outside the field of view
     }
 
-    pub fn update_buffer_with_surfaces(&mut self, world: &Vec<Cube>) {
+    pub fn update_buffer_with_surfaces(&mut self, world: &Vec<Object>) {
         // Make sure the camera's buffer is empty
         self.clear_buffer();
         // Getting the (x,y) position of the top-left most point of the camera
-        for cube in &*world {
+        for object in &*world {
 
             // Getting the surfaces of the cube
-            let mut surfaces = cube.get_tesselation();
+            let surfaces = object.get_surfaces();
 
             // Getting the position of the viewing frustum
             let (x_0, y_0, z_0) = (self.transform.position[0], self.transform.position[1], self.transform.position[2]);
@@ -69,10 +68,9 @@ impl Camera {
             // Note: The raster's normal vector is the negative of the z_basis because the camera's line of sight is along it's -z axis.
             // Getting the top-left most vertex of the raster after applying it's stored translation and rotation
 
-            // Plane's equation: A(x-x0)+B(y-y0)+C(z-z0) = 0 where unit_norm = <A,B,C>
-            // Ax + By + Cz + d => d = - Ax0 - By0 - Cz0  
+            // Plane's equation: A(x-x0)+B(y-y0)+C(z-z0) = 0 where unit_norm = <A,B,C>  
             let surfaces: Vec<[[usize;3];3]> = surfaces
-                .iter_mut()
+                .iter()
                 // Get point coords w.r.t to the camera's position 
                 // ( It has an inverted z-axis because its line of sight is positioned along the -z axis...)
                 // So Vertex' = ( Vertex - V_0 ) with an inverted z-component
@@ -80,19 +78,17 @@ impl Camera {
                     let mut plane_surface:[[f64;3];3] = [[0.0;3];3];
                     let mut i = 0;
                     for point in surface{
+                        let temp_point = [point[0]-x_0,point[1]-y_0,point[2]-z_0];
                         // Getting the points relative to the camera's position
-                        point[0] -= x_0;
-                        point[1] -= y_0; 
-                        point[2] -= z_0;
                         let mut new_point = [0.0;3];
                         // Swapping from world coords to camera coords
 
                         // x = V' * x_basis
-                        new_point[0] = x_basis.x * point[0] + x_basis.y * point[1] + x_basis.z * point[2];
+                        new_point[0] = x_basis.x * temp_point[0] + x_basis.y * temp_point[1] + x_basis.z * temp_point[2];
                         // y = V' * y_basis
-                        new_point[1] = y_basis.x * point[0] + y_basis.y * point[1] + y_basis.z * point[2];
+                        new_point[1] = y_basis.x * temp_point[0] + y_basis.y * temp_point[1] + y_basis.z * temp_point[2];
                         // z = V' * z_basis
-                        new_point[2] = z_basis.x * point[0] + z_basis.y * point[1] + z_basis.z * point[2];
+                        new_point[2] = z_basis.x * temp_point[0] + z_basis.y * temp_point[1] + z_basis.z * temp_point[2];
 
                         // PERSPECTIVE DIVIDE STEP
                         new_point[0] = new_point[0] / ( -1.0 * new_point[2]);
@@ -198,8 +194,7 @@ impl Camera {
             &point1[2],
             &mut triangle_buffer,
         );
-        //println!("BUFFER: {:?}",triangle_buffer);
-        //Iterating over the sub-section the screen is drawn to and applying the scanline algorithm
+        // Iterating over the sub-section the screen is drawn to and applying the scanline algorithm
         for y in 0..=(y_range) {
         'draw_loop:for x in 0..(x_range) {
                 // If there is a pixel drawn at [x][y] & not at [x+1][y]

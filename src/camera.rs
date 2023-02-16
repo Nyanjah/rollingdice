@@ -41,7 +41,7 @@ impl Camera {
         //x >= -1.0 && x <= 1.0 && y >= -1.0 && y <= 1.0 
         // z coord should be negative, otherwise it is behind the camera
         //&& 
-        z < 0.0 {true}
+        z < -0.0 {true}
         else {
         println!("{:?}",point);
         false} // Otherwise they are outside the field of view
@@ -112,7 +112,6 @@ impl Camera {
                         && self.in_view(&surface[1])
                         && self.in_view(&surface[2])
                 })
-                
                 // Converting from NDC (Normalized Device Coordinates) to screen coordinates
                 // and setting a temporary alpha value to the pixels in the surface directly
                 .map(|surface| -> [[usize;3];3]{
@@ -132,7 +131,6 @@ impl Camera {
                     return grid_surface
                 })                
                 .collect();
-            
             // Drawing the triangle:
             for surface in surfaces {   
                 self.draw_triangle(&surface);
@@ -148,7 +146,6 @@ impl Camera {
     pub fn clear_buffer(&mut self) {
         self.buffer = vec![vec![0; self.height]; self.width];
     }
-
     fn draw_triangle(&mut self, surface: &[[usize; 3]; 3]) {
         let mut point1 = surface[0];
         let mut point2 = surface[1];
@@ -159,15 +156,17 @@ impl Camera {
         let x_max = ((point1[0]).max(point2[0])).max(point3[0]);
         let y_min = ((point1[1]).min(point2[1])).min(point3[1]);
         let y_max = ((point1[1]).max(point2[1])).max(point3[1]);
+        // Clamping the x and y ranges to limit the buffer size to the size of the screen
+        let y_range = (y_max - y_min).clamp(0,self.height);
+        let x_range = (x_max - x_min).clamp(0,self.width);
 
         for point in [&mut point1,&mut point2,&mut point3]{
             point[0] -= x_min;
             point[1] -= y_min;
         }
-
         // Making a temporary per-triangle buffer for intermediate processing
         // Stores the u8 (0-255) alpha value and a flag for if there is a pixel present at the location
-        let mut triangle_buffer: Vec<Vec<(u8,bool)>> = vec![vec![(0,false); (y_max - y_min) + 1]; (x_max - x_min) + 1];
+        let mut triangle_buffer: Vec<Vec<(u8,bool)>> = vec![vec![(0,false); (y_range) + 1]; (x_range) + 1];
         // Plotting the three lines that make up the surfaces boundary
         // Line P1->P2
         self.plot_line(
@@ -201,14 +200,14 @@ impl Camera {
         );
         //println!("BUFFER: {:?}",triangle_buffer);
         //Iterating over the sub-section the screen is drawn to and applying the scanline algorithm
-        for y in 0..=(y_max-y_min) {
-        'draw_loop:for x in 0..(x_max - x_min) {
+        for y in 0..=(y_range) {
+        'draw_loop:for x in 0..(x_range) {
                 // If there is a pixel drawn at [x][y] & not at [x+1][y]
                 if triangle_buffer[x][y].1 == true && triangle_buffer[x+1][y].1 == false {
                     let first_pixel = (x, y);
-                    for x_i in ((first_pixel.0 + 1)..(x_max-x_min)).rev() {
-                        // If there is a not a pixel drawn at [x_i][y] and one drawn at [x_i+1][y] 
-                        if triangle_buffer[x_i][y].1 == false && triangle_buffer[x_i+1][y].1 == true {
+                    for x_i in ((first_pixel.0 + 1)..(x_range)).rev() {
+                        // If there is a not a pixel drawn at [x_i][y] and one drawn at [x_i+1][y]
+                        if triangle_buffer[x_i+1][y].1 == true {
                             let second_pixel = (x_i+1, y);
                             // Plot the line between the two pixels
                             self.plot_line(
@@ -228,9 +227,9 @@ impl Camera {
             }
         }
         // Inserting the triangle into the camera's buffer
-        for x in 1..(x_max-x_min) {
+        for x in 1..(x_range) {
             if x + x_min >= self.width {break}
-            for y in 1..(y_max-y_min){
+            for y in 1..(y_range){
             if y + y_min >= self.height {break}
             // If the pixel is closer (brighter) than the one in the z_buffer, add it to the z_buffer and draw it
                 if triangle_buffer[x][y].0 > self.z_buffer[x+x_min][y+y_min]{
@@ -267,8 +266,15 @@ impl Camera {
                 plot_line_high(x_0, y_0, x_1, y_1, apha_0, alpha_1)
             }
         }};
-
-        for pixel in pixels_to_plot {
+        let x_bound = buffer.len();
+        let y_bound = buffer[0].len();
+        for pixel in pixels_to_plot.iter().filter(|pixel| {
+            if pixel.0 > x_bound - 1 || pixel.1 > y_bound -1 {
+                false
+            }
+            else {true}
+        })  {
+            
             // Drawing the pixel to the buffer
             buffer[pixel.0 as usize][pixel.1 as usize].0 = pixel.2 as u8;
             // Setting the pixel_present flag to True

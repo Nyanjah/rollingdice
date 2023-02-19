@@ -116,12 +116,12 @@ impl Camera {
                     let mut i = 0;
                     for point in surface{
                         // X-values
-                        grid_surface[i][0] = ((point[0] * self.width as f64/2.0) + self.width as f64/2.0) as usize;
+                        grid_surface[i][0] = ((point[0] * self.width as f64/2.0) + self.width as f64/2.0).round() as usize;
                         // Y-values
-                        grid_surface[i][1] = ((point[1] * self.height as f64/2.0) + self.height as f64/2.0) as usize;
-                        //orthogonal distance from raster mapped to a brightness 0-255
-                        grid_surface[i][2] = 255 - (point[2].abs()).clamp(0.0,255.0) as usize; 
-                        //grid_surface[i][2] = 255;  
+                        grid_surface[i][1] = ((point[1] * self.height as f64/2.0) + self.height as f64/2.0).round() as usize;
+                        // orthogonal distance from raster mapped to a brightness 0-255
+                        // grid_surface[i][2] = 255 - (point[2].abs()).clamp(0.0,255.0) as usize; 
+                        grid_surface[i][2] = 255;  
                         i = i + 1;
                     }
                     return grid_surface
@@ -195,32 +195,32 @@ impl Camera {
             &mut triangle_buffer,
         );
         // Iterating over the sub-section the screen is drawn to and applying the scanline algorithm
-        for y in 0..=(y_range) {
-        'draw_loop:for x in 0..(x_range) {
-                // If there is a pixel drawn at [x][y] & not at [x+1][y]
-                if triangle_buffer[x][y].1 == true && triangle_buffer[x+1][y].1 == false {
-                    let first_pixel = (x, y);
-                    for x_i in ((first_pixel.0 + 1)..(x_range)).rev() {
-                        // If there is a not a pixel drawn at [x_i][y] and one drawn at [x_i+1][y]
-                        if triangle_buffer[x_i+1][y].1 == true {
-                            let second_pixel = (x_i+1, y);
-                            // Plot the line between the two pixels
-                            self.plot_line(
-                                &first_pixel.0,
-                                &first_pixel.1,
-                                &second_pixel.0,
-                                &second_pixel.1,
-                                &(triangle_buffer[first_pixel.0][first_pixel.1].0 as usize),
-                                &(triangle_buffer[second_pixel.0][second_pixel.1].0 as usize),
-                                &mut triangle_buffer,
-                            );
-                            // Exit the loop for the current y-value
-                            break 'draw_loop;
-                        }
-                    }
-                }
-            }
-        }
+        // for y in 0..=(y_range) {
+        // 'draw_loop:for x in 0..(x_range) {
+        //         // If there is a pixel drawn at [x][y] & not at [x+1][y]
+        //         if triangle_buffer[x][y].1 == true && triangle_buffer[x+1][y].1 == false {
+        //             let first_pixel = (x, y);
+        //             for x_i in ((first_pixel.0 + 1)..(x_range)).rev() {
+        //                 // If there is a not a pixel drawn at [x_i][y] and one drawn at [x_i+1][y]
+        //                 if triangle_buffer[x_i][y].1 == false && triangle_buffer[x_i+1][y].1 == true {
+        //                     let second_pixel = (x_i+1, y);
+        //                     // Plot the line between the two pixels
+        //                     self.plot_line(
+        //                         &first_pixel.0,
+        //                         &first_pixel.1,
+        //                         &second_pixel.0,
+        //                         &second_pixel.1,
+        //                         &(triangle_buffer[first_pixel.0][first_pixel.1].0 as usize),
+        //                         &(triangle_buffer[second_pixel.0][second_pixel.1].0 as usize),
+        //                         &mut triangle_buffer,
+        //                     );
+        //                     // Exit the loop for the current y-value
+        //                     break 'draw_loop;
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
         // Inserting the triangle into the camera's buffer
         for x in 1..(x_range) {
             if x + x_min >= self.width {break}

@@ -29,18 +29,18 @@ fn main() {
     .unwrap_or_else(|e| {
         panic!("{}", e);
     });
-    let mut camera1 = Camera::new(&[0.0, -1.0, 0.0], &WIDTH, &HEIGHT);
-    camera1.rotate(PI, [0.0,1.0,0.0]);
+    let mut camera1 = Camera::new(&[0.0, 0.0, -15.0], &WIDTH, &HEIGHT);
+    //camera1.rotate(PI, [0.0,1.0,0.0]);
     let mut world = Vec::new(); 
 
     world.push(Object::new(
-        10.0,
-        &[0.0,0.0, -50.0],
-        Quaternion::new(3.0*PI/2.0, &[1.0, 0.0, 0.0]),
-        "./knight.obj".to_string()
+        1.0,
+        &[0.0,0.0, 10.0],
+        Quaternion::new(PI, &[0.0, 0.0, 1.0]),
+        "./eren.obj".to_string()
         
     ));
-    world[0].rotate(PI, [0.0,1.0,0.0]);
+    //world[0].rotate(PI/2.0, [0.0 , 0.0, 1.0]);
     // Creating an empty window buffer for minifb to update the window with
     let mut window_buffer: Vec<u32> = Vec::new();
     // (Optional) Limit the window update rate to control CPU usage

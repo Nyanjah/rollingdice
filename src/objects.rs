@@ -40,7 +40,7 @@ pub trait Transformable {
         // let axis = [axis[0] + pos[0],axis[1] + pos[1],axis[2] + pos[2]];
         let mut quaternion = Quaternion::new(angle,&axis);
         quaternion.normalize();
-        self.transform_mut().quaternion = self.transform_mut().quaternion * quaternion;
+        self.transform_mut().quaternion = self.transform_mut().quaternion.normalize() * quaternion;
     }
 }
 
@@ -67,12 +67,13 @@ impl Quaternion {
             z: axis[2] * (angle / 2.0).sin() / magnitude,
         }
     }
-    pub fn normalize(&mut self) {
+    pub fn normalize(&mut self) -> Quaternion{
         let magnitude = (self.angle.powf(2.0) + self.x.powf(2.0) + self.y.powf(2.0) + self.z.powf(2.0)).sqrt();
             self.angle =  self.angle / magnitude;
             self.x = self.x / magnitude;
             self.y = self.y / magnitude;
             self.z = self.z / magnitude;
+        return *self
     }
     pub fn normalize_as_vector(&mut self) {
         let magnitude = (self.x.powf(2.0) + self.y.powf(2.0) + self.z.powf(2.0)).sqrt();
@@ -122,34 +123,36 @@ impl Transformable for Object {
 impl Object {
     pub fn new(scale: f64, position: &[f64; 3], quaternion: Quaternion, path:String) -> Self {
         if scale <= 0.0 {
-            panic!("Attempted to instantiate cube of side length <= 0.");
+            panic!("Attempted to instantiate with size <= 0.");
         }
         // Loading the surfaces from the object data   
         let (models,_materials) = load_obj(path, &LoadOptions {triangulate: true, ..Default::default()}).unwrap();
-        let mesh = &models[0].mesh;
         let mut initial_surfaces: Vec<[[f64;3];3]> = Vec::new();
-        let mut index = 0;
-        while index < mesh.indices.len(){
+        for k in 0..models.len() {
+            let mesh = &models[k].mesh;
+            let mut index = 0;
+            while index < mesh.indices.len(){
 
-            let vertex1 = [
-            mesh.positions[3 * mesh.indices[index] as usize ] as f64,
-            mesh.positions[3 * mesh.indices[index] as usize+ 1] as f64,
-            mesh.positions[3 * mesh.indices[index] as usize+ 2] as f64
-            ];
-            let vertex2 = [
-            mesh.positions[3 * mesh.indices[index + 1] as usize ] as f64,
-            mesh.positions[3 * mesh.indices[index + 1] as usize  + 1] as f64,
-            mesh.positions[3 * mesh.indices[index + 1] as usize  + 2] as f64
-            ];
-            let vertex3 = [
-            mesh.positions[3 * mesh.indices[index + 2] as usize ] as f64,
-            mesh.positions[3 * mesh.indices[index + 2] as usize  + 1] as f64,
-            mesh.positions[3 * mesh.indices[index + 2] as usize  + 2] as f64
-            ];
-            initial_surfaces.push([vertex1,vertex2,vertex3]);
-            index = index + 3;
-        }
+                let vertex1 = [
+                mesh.positions[3 * mesh.indices[index] as usize ] as f64,
+                mesh.positions[3 * mesh.indices[index] as usize+ 1] as f64,
+                mesh.positions[3 * mesh.indices[index] as usize+ 2] as f64
+                ];
+                let vertex2 = [
+                mesh.positions[3 * mesh.indices[index + 1] as usize ] as f64,
+                mesh.positions[3 * mesh.indices[index + 1] as usize  + 1] as f64,
+                mesh.positions[3 * mesh.indices[index + 1] as usize  + 2] as f64
+                ];
+                let vertex3 = [
+                mesh.positions[3 * mesh.indices[index + 2] as usize ] as f64,
+                mesh.positions[3 * mesh.indices[index + 2] as usize  + 1] as f64,
+                mesh.positions[3 * mesh.indices[index + 2] as usize  + 2] as f64
+                ];
+                initial_surfaces.push([vertex1,vertex2,vertex3]);
 
+                index = index + 3;
+            }
+    }
         return Object {
             scale: scale,
             transform: Transform {
@@ -169,11 +172,11 @@ impl Object {
             // p -> q * p * q^-1
             let rotated_surface = [
                 // v1 - > v1'
-                ((self.transform.quaternion * Quaternion::from(&surface[0])) *self.transform.quaternion.get_inverse()).to_vector(),
+                ( (self.transform.quaternion * Quaternion::from(&surface[0])) *self.transform.quaternion.get_inverse() ).to_vector(),
                 // v2 -> v2'
-                ((self.transform.quaternion * Quaternion::from(&surface[1])) *self.transform.quaternion.get_inverse()).to_vector(),
+                ( (self.transform.quaternion * Quaternion::from(&surface[1])) *self.transform.quaternion.get_inverse() ).to_vector(),
                 // v3 -> v3'
-                ((self.transform.quaternion * Quaternion::from(&surface[2])) *self.transform.quaternion.get_inverse()).to_vector()
+                ( (self.transform.quaternion * Quaternion::from(&surface[2])) *self.transform.quaternion.get_inverse() ).to_vector()
             ];
             return rotated_surface;
         })

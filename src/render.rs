@@ -1,10 +1,32 @@
 use crate::objects::*;
 pub struct Camera {
     transform: Transform,
-    buffer: Vec<Vec<u8>>,
+    buffer: Vec<Vec<u32>>,
     z_buffer: Vec<Vec<u8>>,
     width: usize,
     height: usize,
+}
+
+// The properties of the fragments are determined by their corresponding geometric primitives
+// In this case, they are determined by their corresponding triangular surface loaded from the .obj file.
+pub struct Fragment{
+    x: usize,       // x-coord in the raster
+    y: usize,       // y-cord in the raster
+    distance: f64,  // Distance to be used in the z-buffer to solve the visibility problem
+    color: [f64;4]  // RGBA color
+}
+pub struct Surface{
+    vertices: [Vertex;3], // Contains three vertices
+    // Todo: Add more properties for improved graphics (diffuse color, specular color, other material properties, etc...)
+}
+
+pub struct Vertex{
+    x:f64, // x-coord
+    y:f64, // y-coord
+    z:f64,  // z-coord
+    normal: [f64;3],   // vertex-normal ( calculated by summing the surface normals, then normalizing to a unit vector)
+    color: [f64;4]     // vertex-color ( from loaded .obj file )
+    // Todo: This would be a good place to store texture coordinates
 }
 
 impl Transformable for Camera {
@@ -137,7 +159,7 @@ impl Camera {
         }
     }
 
-    pub fn buffer(&self) -> &Vec<Vec<u8>> {
+    pub fn buffer(&self) -> &Vec<Vec<u32>> {
         return &self.buffer;
     }
     pub fn clear_buffer(&mut self) {
@@ -164,151 +186,79 @@ impl Camera {
         // Making a temporary per-triangle buffer for intermediate processing
         // Stores the u8 (0-255) alpha value and a flag for if there is a pixel present at the location
         let mut triangle_buffer: Vec<Vec<(u8,bool)>> = vec![vec![(0,false); (y_range) + 1]; (x_range) + 1];
+
         // Plotting the three lines that make up the surfaces boundary
-        // Line P1->P2
-        self.plot_line(
-            &point1[0],
-            &point1[1],
-            &point2[0],
-            &point2[1],
-            &point1[2],
-            &point2[2],
-            &mut triangle_buffer,
-        );
-        // Line P2->P3
-        self.plot_line(
-            &point2[0],
-            &point2[1],
-            &point3[0],
-            &point3[1],
-            &point2[2],
-            &point3[2],
-            &mut triangle_buffer,
-        );
-        // Line P3->P1
-        self.plot_line(
-            &point3[0],
-            &point3[1],
-            &point1[0],
-            &point1[1],
-            &point3[2],
-            &point1[2],
-            &mut triangle_buffer,
-        );
-        //Iterating over the sub-section the screen is drawn to and applying the scanline algorithm
-        for y in 0..=(y_range) {
-        'draw_loop:for x in 0..(x_range) {
-                // If there is a pixel drawn at [x][y] & not at [x+1][y]
-                if triangle_buffer[x][y].1 == true && triangle_buffer[x+1][y].1 == false {
-                    let first_pixel = (x, y);
-                    for x_i in ((first_pixel.0 + 1)..(x_range)).rev() {
-                        // If there is a not a pixel drawn at [x_i][y] and one drawn at [x_i+1][y]
-                        if triangle_buffer[x_i][y].1 == false && triangle_buffer[x_i+1][y].1 == true {
-                            let second_pixel = (x_i+1, y);
-                            // Plot the line between the two pixels
-                            self.plot_line(
-                                &first_pixel.0,
-                                &first_pixel.1,
-                                &second_pixel.0,
-                                &second_pixel.1,
-                                &(triangle_buffer[first_pixel.0][first_pixel.1].0 as usize),
-                                &(triangle_buffer[second_pixel.0][second_pixel.1].0 as usize),
-                                &mut triangle_buffer,
-                            );
-                            // Exit the loop for the current y-value
-                            break 'draw_loop;
-                        }
-                    }
-                }
-            }
-        }
+        
+        
         // Inserting the triangle into the camera's buffer
-        for x in 1..(x_range) {
-            if x + x_min >= self.width {break}
-            for y in 1..(y_range){
-            if y + y_min >= self.height {break}
-            // If the pixel is closer (brighter) than the one in the z_buffer, add it to the z_buffer and draw it
-                if triangle_buffer[x][y].0 > self.z_buffer[x+x_min][y+y_min]{
-                    self.z_buffer[x+x_min][y+y_min] = triangle_buffer[x][y].0;
-                    self.buffer[x+x_min][y+y_min] = triangle_buffer[x][y].0;
-                }
-           }
-        }
+    
+
+
+
+
+
+
     }
 
-    fn plot_line(
+    // Takes in two fragments and returns a vector of fragments which make up the line
+    fn get_line_fragments(
         &mut self,
-        x_0: &usize,
-        y_0: &usize,
-        x_1: &usize,
-        y_1: &usize,
-        alpha_1: &usize,
-        apha_0: &usize,
-        buffer: &mut Vec<Vec<(u8,bool)>>,
-    ) {
-
-        let pixels_to_plot:Vec<(usize, usize, usize)> = {
-            
-        if (*y_1 as i32 - *y_0 as i32).abs() < (*x_1 as i32 - *x_0 as i32).abs() {
+        fragment_0: &Fragment,
+        fragment_1: &Fragment,
+    ) -> Vec<Fragment>
+    {
+        let (x_0,y_0) = (fragment_0.x,fragment_0.y);
+        let (x_1,y_1) = (fragment_1.x,fragment_1.y);
+        let mut fragments = Vec::new();
+        if (y_1 as i32 - y_0 as i32).abs() < (x_1 as i32 - x_0 as i32).abs() {
             if x_0 > x_1 {
-                plot_line_low(x_1, y_1, x_0, y_0, alpha_1, apha_0)
+                fragments = plot_line_low(fragment_0,fragment_1);
             } else {
-                plot_line_low(x_0, y_0, x_1, y_1, apha_0, alpha_1)
+                fragments = plot_line_low(fragment_0,fragment_1);
             }
         } else {
             if y_0 > y_1 {
-                plot_line_high(x_1, y_1, x_0, y_0, alpha_1, apha_0)
+                fragments = plot_line_high(fragment_0,fragment_1);
             } else {
-                plot_line_high(x_0, y_0, x_1, y_1, apha_0, alpha_1)
+                fragments = plot_line_high(fragment_0,fragment_1);
             }
-        }};
-        let x_bound = buffer.len();
-        let y_bound = buffer[0].len();
-        for pixel in pixels_to_plot.iter().filter(|pixel| {
-            if pixel.0 > x_bound - 1 || pixel.1 > y_bound -1 {
-                false
-            }
-            else {true}
-        })  {
-            
-            // Drawing the pixel to the buffer
-            buffer[pixel.0 as usize][pixel.1 as usize].0 = pixel.2 as u8;
-            // Setting the pixel_present flag to True
-            buffer[pixel.0 as usize][pixel.1 as usize].1 = true;
-
+        };
+        return fragments
         }
     }
-}
 
 // Takes in two points and returns a vector of points to color in the raster
 fn plot_line_low(
-    x_0: &usize,
-    y_0: &usize,
-    x_1: &usize,
-    y_1: &usize,
-    dist_0: &usize,
-    dist_1: &usize,
-) -> Vec<(usize, usize, usize)> {
+fragment_0:&Fragment,
+fragment_1:&Fragment
+) -> Vec<Fragment> {
+
+    let (x_0,y_0) = (fragment_0.x,fragment_0.y);
+    let (x_1,y_1) = (fragment_1.x,fragment_1.y);
+
     let mut output = Vec::new();
-    let dx: i32 = *x_1 as i32 - *x_0 as i32;
-    let mut dy: i32 = *y_1 as i32 - *y_0 as i32;
+    let dx: i32 = x_1 as i32 - x_0 as i32;
+    let mut dy: i32 = y_1 as i32 - y_0 as i32;
     let mut y_i: i32 = 1;
     if dy < 0 {
         y_i = -1;
         dy = -1 * dy as i32;
     }
     let mut d = 2 * dy - dx;
-    let mut y = *y_0 as i32;
-    for x in *x_0..=*x_1 {
-        output.push((
-            x as usize,
-            y as usize,
-            lerp(
-                *dist_0 as f64,
-                *dist_1 as f64,
-                ((x - x_0) as f64).abs() / ((x_1 - x_0) as f64).abs(),
-            ) as usize,
-        ));
+    let mut y = y_0 as i32;
+    for x in x_0..=x_1 {
+        let difference = ((x - x_0) as f64).abs() / ((x_1 - x_0) as f64).abs();
+        output.push(
+            Fragment { x: x as usize, y: y as usize,
+                distance: lerp(fragment_0.distance,fragment_1.distance,difference),
+                color: [
+                    lerp(fragment_0.color[0],fragment_1.color[0],difference),
+                    lerp(fragment_0.color[1],fragment_1.color[1],difference),
+                    lerp(fragment_0.color[2],fragment_1.color[2],difference),
+                    0.0
+                ] 
+            }
+        );
         if d > 0 {
             y = y + y_i;
             d = d + (2 * (dy - dx));
@@ -321,33 +271,36 @@ fn plot_line_low(
 
 // Takes in two points and returns a vector of points to color in the raster
 fn plot_line_high(
-    x_0: &usize,
-    y_0: &usize,
-    x_1: &usize,
-    y_1: &usize,
-    dist_0: &usize,
-    dist_1: &usize,
-) -> Vec<(usize, usize, usize)> {
+fragment_0: &Fragment,
+fragment_1: &Fragment
+) -> Vec<Fragment> {
+
+    let (x_0,y_0) = (fragment_0.x,fragment_0.y);
+    let (x_1,y_1) = (fragment_1.x,fragment_1.y);
+
     let mut output = Vec::new();
-    let mut dx = *x_1 as i32 - *x_0 as i32;
-    let dy = *y_1 as i32 - *y_0 as i32;
+    let mut dx = x_1 as i32 - x_0 as i32;
+    let dy = y_1 as i32 - y_0 as i32;
     let mut x_i = 1 as i32;
     if dx < 0 {
         x_i = -1;
         dx = -dx;
     }
     let mut d = (2 * dx) - dy;
-    let mut x: i32 = *x_0 as i32;
-    for y in *y_0..=*y_1 {
-        output.push((
-            x as usize,
-            y as usize,
-            lerp(
-                *dist_0 as f64,
-                *dist_1 as f64,
-                ((y - *y_0) as f64).abs() / ((y_1 - y_0) as f64).abs(),
-            ) as usize,
-        ));
+    let mut x: i32 = x_0 as i32;
+    for y in y_0..=y_1 {
+        let difference = ((x - x_0 as i32) as f64).abs() / ((x_1 - x_0) as f64).abs();
+        output.push(
+            Fragment { x: x as usize, y: y as usize,
+                distance: lerp(fragment_0.distance,fragment_1.distance,difference),
+                color: [
+                    lerp(fragment_0.color[0],fragment_1.color[0],difference),
+                    lerp(fragment_0.color[1],fragment_1.color[1],difference),
+                    lerp(fragment_0.color[2],fragment_1.color[2],difference),
+                    0.0
+                ] 
+            }
+        );
         if d > 0 {
             x = x + x_i;
             d = d + (2 * (dx - dy));

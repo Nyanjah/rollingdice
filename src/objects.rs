@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 use tobj::*;
-use crate::{Surface, render::Vertex};
 #[derive(Copy, Clone)]
 #[derive(Debug)]
 pub struct Quaternion {
@@ -12,7 +11,7 @@ pub struct Quaternion {
 pub struct Object {
     scale: f64,
     transform: Transform,
-    surfaces: Vec<Surface>
+    surfaces: Vec<[[f64;3];3]>
 }
 
 pub struct Transform {
@@ -128,40 +127,28 @@ impl Object {
         }
         // Loading the surfaces from the object data   
         let (models,_materials) = load_obj(path, &LoadOptions {triangulate: true, ..Default::default()}).unwrap();
-        let mut initial_surfaces: Vec<Surface> = Vec::new();
+        let mut initial_surfaces: Vec<[[f64;3];3]> = Vec::new();
         for k in 0..models.len() {
             let mesh = &models[k].mesh;
             let mut index = 0;
             while index < mesh.indices.len(){
 
-                let vertex1 = Vertex {
-                x: mesh.positions[3 * mesh.indices[index] as usize ] as f64,
-                y: mesh.positions[3 * mesh.indices[index] as usize+ 1] as f64,
-                z: mesh.positions[3 * mesh.indices[index] as usize+ 2] as f64,
-                normal: [0.0,0.0,0.0],
-                color: [255.0,255.0,255.0,0.0],
-                };
-                let vertex2 = Vertex{
-                x: mesh.positions[3 * mesh.indices[index + 1] as usize ] as f64,
-                y: mesh.positions[3 * mesh.indices[index + 1] as usize  + 1] as f64,
-                z: mesh.positions[3 * mesh.indices[index + 1] as usize  + 2] as f64,
-                normal: [0.0,0.0,0.0],
-                color: [255.0,255.0,255.0,0.0],
-                };
-                let vertex3 = Vertex {
-                x: mesh.positions[3 * mesh.indices[index + 2] as usize ] as f64,
-                y: mesh.positions[3 * mesh.indices[index + 2] as usize  + 1] as f64,
-                z: mesh.positions[3 * mesh.indices[index + 2] as usize  + 2] as f64,
-                normal: [0.0,0.0,0.0],
-                color: [255.0,255.0,255.0,0.0],
-                };
-
-                initial_surfaces.push(
-                    Surface {
-                        vertices: [vertex1,vertex2,vertex3],
-                    }
-
-                );
+                let vertex1 = [
+                mesh.positions[3 * mesh.indices[index] as usize ] as f64,
+                mesh.positions[3 * mesh.indices[index] as usize+ 1] as f64,
+                mesh.positions[3 * mesh.indices[index] as usize+ 2] as f64
+                ];
+                let vertex2 = [
+                mesh.positions[3 * mesh.indices[index + 1] as usize ] as f64,
+                mesh.positions[3 * mesh.indices[index + 1] as usize  + 1] as f64,
+                mesh.positions[3 * mesh.indices[index + 1] as usize  + 2] as f64
+                ];
+                let vertex3 = [
+                mesh.positions[3 * mesh.indices[index + 2] as usize ] as f64,
+                mesh.positions[3 * mesh.indices[index + 2] as usize  + 1] as f64,
+                mesh.positions[3 * mesh.indices[index + 2] as usize  + 2] as f64
+                ];
+                initial_surfaces.push([vertex1,vertex2,vertex3]);
 
                 index = index + 3;
             }

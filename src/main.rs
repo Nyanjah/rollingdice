@@ -1,11 +1,11 @@
 mod objects;
-mod render;
+mod camera;
 use minifb::*;
 use objects::*;
-use render::*;
+use camera::*;
 use std::f64::consts::PI;
 
-const WIDTH: usize = 540;
+const WIDTH: usize = 1080;
 const HEIGHT: usize = 720;
 const SECONDS_PER_FRAME: f32 = 0.02;
 
@@ -23,7 +23,7 @@ fn main() {
             scale_mode: ScaleMode::Stretch,
             transparency: false,
             none: false,
-            topmost: false,
+            topmost: true,
         },
     )
     .unwrap_or_else(|e| {
@@ -34,10 +34,10 @@ fn main() {
     let mut world = Vec::new(); 
 
     world.push(Object::new(
-        0.5,
+        1.0,
         &[0.0,0.0, 10.0],
         Quaternion::new(PI, &[0.0, 0.0, 1.0]),
-        "./cat.obj".to_string()
+        "./eren.obj".to_string()
         
     ));
     //world[0].rotate(PI/2.0, [0.0 , 0.0, 1.0]);
@@ -50,7 +50,7 @@ fn main() {
     while window.is_open() && !window.is_key_down(Key::Escape) {
         // Rotate every cube +PI/200 radians about the vector <0,1,1>
         for cube in &mut world {
-            cube.rotate(PI / 1000.0, [0.0, 1.0, 0.0]);
+            //cube.rotate(PI / 100.0, [0.0, 1.0, 0.0]);
         }
         // Take a snapshot with the camera
         camera1.update_buffer_with_surfaces(&world);

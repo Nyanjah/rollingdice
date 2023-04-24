@@ -121,8 +121,8 @@ impl Camera {
                         // Y-values
                         grid_surface[i][1] = ((point[1] * self.height as f64/2.0) + self.height as f64/2.0).round() as usize;
                         // orthogonal distance from raster mapped to a brightness 0-255
-                        // grid_surface[i][2] = 255 - (point[2].abs()).clamp(0.0,255.0) as usize; 
-                        grid_surface[i][2] = 255;  
+                        grid_surface[i][2] = 255 - ((point[2].abs().powi(2))).clamp(0.0,255.0) as usize; 
+                        // grid_surface[i][2] = 255;    
                         i = i + 1;
                     }
                     return grid_surface
@@ -223,9 +223,9 @@ impl Camera {
             }
         }
         // Inserting the triangle into the camera's buffer
-        for x in 1..(x_range) {
+        for x in 1..=(x_range) {
             if x + x_min >= self.width {break}
-            for y in 1..(y_range){
+            for y in 1..=(y_range){
             if y + y_min >= self.height {break}
             // If the pixel is closer (brighter) than the one in the z_buffer, add it to the z_buffer and draw it
                 if triangle_buffer[x][y].0 > self.z_buffer[x+x_min][y+y_min]{

@@ -23,16 +23,18 @@ fn main() {
             scale_mode: ScaleMode::Stretch,
             transparency: false,
             none: false,
-            topmost: true,
+            topmost: false,
         },
     )
     .unwrap_or_else(|e| {
         panic!("{}", e);
     });
+
     let mut camera1 = Camera::new(&[0.0, 0.0, -15.0], &WIDTH, &HEIGHT);
+   
     //camera1.rotate(PI, [0.0,1.0,0.0]);
     let mut world = Vec::new(); 
-
+    
     world.push(Object::new(
         1.0,
         &[0.0,0.0, 10.0],
@@ -50,23 +52,25 @@ fn main() {
     while window.is_open() && !window.is_key_down(Key::Escape) {
         // Rotate every cube +PI/200 radians about the vector <0,1,1>
         for cube in &mut world {
-            //cube.rotate(PI / 100.0, [0.0, 1.0, 0.0]);
+            cube.rotate(PI / 100.0, [0.0, 1.0, 0.0]);
         }
         // Take a snapshot with the camera
         camera1.update_buffer_with_surfaces(&world);
+     
         //camera1.update_buffer_with_vertices(&world);
         // Convert the snapshot to a window_buffer to be used with minifb crate
         window_buffer.clear(); 
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
                 let pixel = camera1.buffer()[x][y] as u32;
-                window_buffer.push((pixel | pixel << 8 | pixel << 16) as u32)
+                window_buffer.push((pixel << 16 | pixel << 8 | pixel ) as u32)
             }
         }
+        
 
         // Update the window with the prepared frame
         window.update_with_buffer(&window_buffer, WIDTH, HEIGHT).unwrap();
-
+  
         if window.is_key_down(Key::D){
             // Go left
             camera1.translate(&[-1.0,0.0,0.0]);

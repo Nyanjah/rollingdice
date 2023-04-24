@@ -121,6 +121,33 @@ impl Transformable for Object {
 }
 
 impl Object {
+
+    pub fn plane() -> Self {
+
+        let mut surfaces = Vec::new();
+        // Creating the grid of triangles
+        let SIDE_LENGTH = 200.0;
+        for mut x in -250..250{
+            for mut z in -250..250{
+                let x = x as f64  * SIDE_LENGTH ;
+                let z = z as f64  * SIDE_LENGTH ;
+                surfaces.push([[x,0.0,z],[x + SIDE_LENGTH ,0.0,z] ,[x,0.0,z+SIDE_LENGTH]]);
+                surfaces.push([[x+SIDE_LENGTH,0.0,z+SIDE_LENGTH],[x + SIDE_LENGTH ,0.0,z] ,[x,0.0,z+SIDE_LENGTH]]);
+
+            }
+        }
+        return Object {
+            scale: 1.0,
+            transform: Transform {
+                position: [0.0,0.0,0.0],
+                quaternion: Quaternion::new(0.0,&[1.0,1.0,1.0]),
+            },
+            surfaces: surfaces,
+        }
+    }
+
+
+
     pub fn new(scale: f64, position: &[f64; 3], quaternion: Quaternion, path:String) -> Self {
         if scale <= 0.0 {
             panic!("Attempted to instantiate with size <= 0.");

@@ -122,29 +122,29 @@ impl Transformable for Object {
 
 impl Object {
 
-    pub fn plane() -> Self {
+    // pub fn plane() -> Self {
 
-        let mut surfaces = Vec::new();
-        // Creating the grid of triangles
-        let SIDE_LENGTH = 200.0;
-        for mut x in -250..250{
-            for mut z in -250..250{
-                let x = x as f64  * SIDE_LENGTH ;
-                let z = z as f64  * SIDE_LENGTH ;
-                surfaces.push([[x,0.0,z],[x + SIDE_LENGTH ,0.0,z] ,[x,0.0,z+SIDE_LENGTH]]);
-                surfaces.push([[x+SIDE_LENGTH,0.0,z+SIDE_LENGTH],[x + SIDE_LENGTH ,0.0,z] ,[x,0.0,z+SIDE_LENGTH]]);
+    //     let mut surfaces = Vec::new();
+    //     // Creating the grid of triangles
+    //     let SIDE_LENGTH = 200.0;
+    //     for mut x in -250..250{
+    //         for mut z in -250..250{
+    //             let x = x as f64  * SIDE_LENGTH ;
+    //             let z = z as f64  * SIDE_LENGTH ;
+    //             surfaces.push([[x,0.0,z],[x + SIDE_LENGTH ,0.0,z] ,[x,0.0,z+SIDE_LENGTH]]);
+    //             surfaces.push([[x+SIDE_LENGTH,0.0,z+SIDE_LENGTH],[x + SIDE_LENGTH ,0.0,z] ,[x,0.0,z+SIDE_LENGTH]]);
 
-            }
-        }
-        return Object {
-            scale: 1.0,
-            transform: Transform {
-                position: [0.0,0.0,0.0],
-                quaternion: Quaternion::new(0.0,&[1.0,1.0,1.0]),
-            },
-            surfaces: surfaces,
-        }
-    }
+    //         }
+    //     }
+    //     return Object {
+    //         scale: 1.0,
+    //         transform: Transform {
+    //             position: [0.0,0.0,0.0],
+    //             quaternion: Quaternion::new(0.0,&[1.0,1.0,1.0]),
+    //         },
+    //         surfaces: surfaces,
+    //     }
+    // }
 
 
 
@@ -190,52 +190,44 @@ impl Object {
         }
     }
 
-    pub fn get_surfaces(&self) -> Vec<[[f64;3];3]>{
-        let (x,y,z) = (self.transform.position[0],self.transform.position[1],self.transform.position[2]);
-        // Initial state -> Rotation -> Translation -> Scaling -> Resulting (surface) Vertices
+    pub fn get_surfaces(&self) -> Vec<[[f64;3];3]> {
+        
+        let (x, y, z) = (
+            self.transform.position[0],
+            self.transform.position[1],
+            self.transform.position[2],
+        );
 
-        // Rotating
-        let surfaces = self.surfaces.iter().map(|surface|{
-            // p -> q * p * q^-1
-            let rotated_surface = [
-                // v1 - > v1'
-                ( (self.transform.quaternion * Quaternion::from(&surface[0])) *self.transform.quaternion.get_inverse() ).to_vector(),
-                // v2 -> v2'
-                ( (self.transform.quaternion * Quaternion::from(&surface[1])) *self.transform.quaternion.get_inverse() ).to_vector(),
-                // v3 -> v3'
-                ( (self.transform.quaternion * Quaternion::from(&surface[2])) *self.transform.quaternion.get_inverse() ).to_vector()
-            ];
-            return rotated_surface;
-        })
-        // Translating
-        .map(|surface|{
-            let translated_surface = [
-                // v1 - > v1 + pos 
-                [surface[0][0] + x,surface[0][1] + y,surface[0][2] + z],
-                // v2 -> v2 + pos
-                [surface[1][0] + x,surface[1][1] + y,surface[1][2] + z],
-                // v3 -> v3 + pos
-                [surface[2][0] + x,surface[2][1] + y,surface[2][2] + z]
-                    
-            ];
-            return translated_surface;
-        })
-        // Scaling
-        .map(|surface|{
-            let scaled_surface = [
-                // v1 - > v1 * SCALE
-                [surface[0][0] * self.scale,surface[0][1] * self.scale,surface[0][2] * self.scale],
-                // v2 -> v2 * SCALE
-                [surface[1][0] * self.scale,surface[1][1] * self.scale,surface[1][2] * self.scale],
-                // v3 -> v3 * SCALE
-                [surface[2][0] * self.scale,surface[2][1] * self.scale,surface[2][2] * self.scale]
-                    
-            ];
-            return scaled_surface;
-        })
-        .collect();
-        //println!("{:?}",surfaces);
+        let scale = self.scale;
+        let quat = self.transform.quaternion;
+        let surfaces = self
+            .surfaces
+            .iter()
+            .map(|surface| {
+                let mut rotated_surface = [
+                    // v1 -> v1'
+                    ( (quat * Quaternion::from(&surface[0])) *quat.get_inverse() ).to_vector(),
+                    // v2 -> v2'
+                    ( (quat * Quaternion::from(&surface[1])) *quat.get_inverse() ).to_vector(),
+                    // v3 -> v3'
+                    ( (quat * Quaternion::from(&surface[2])) *quat.get_inverse() ).to_vector()
+                ];
+                // Translating
+                for vertex in rotated_surface.iter_mut() {
+                    vertex[0] += x;
+                    vertex[1] += y;
+                    vertex[2] += z;
+                }
+                // Scaling
+                for vertex in rotated_surface.iter_mut() {
+                    vertex[0] *= scale;
+                    vertex[1] *= scale;
+                    vertex[2] *= scale;
+                }
+                return rotated_surface;
+            })
+            .collect();
         return surfaces;
     }
-
+    
 }

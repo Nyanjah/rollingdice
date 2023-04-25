@@ -7,7 +7,7 @@ use std::f64::consts::PI;
 
 const WIDTH: usize = 1080;
 const HEIGHT: usize = 720;
-const SECONDS_PER_FRAME: f32 = 0.02;
+const SECONDS_PER_FRAME: f32 = 1.0/60.0; // MAX 60 FPS
 
 fn main() {
     // Setting up the window
@@ -32,7 +32,6 @@ fn main() {
 
     let mut camera1 = Camera::new(&[0.0, 0.0, -15.0], &WIDTH, &HEIGHT);
    
-    //camera1.rotate(PI, [0.0,1.0,0.0]);
     let mut world = Vec::new(); 
     
     world.push(Object::new(
@@ -42,11 +41,11 @@ fn main() {
         "./eren.obj".to_string()
         
     ));
-    //world[0].rotate(PI/2.0, [0.0 , 0.0, 1.0]);
+
     // Creating an empty window buffer for minifb to update the window with
     let mut window_buffer: Vec<u32> = Vec::new();
     // (Optional) Limit the window update rate to control CPU usage
-    //window.limit_update_rate(Some(std::time::Duration::from_secs_f32(SECONDS_PER_FRAME)));
+    window.limit_update_rate(Some(std::time::Duration::from_secs_f32(SECONDS_PER_FRAME)));
 
     // Main window loop
     while window.is_open() && !window.is_key_down(Key::Escape) {

@@ -52,7 +52,7 @@ impl Camera {
         // Make sure the camera's buffer is empty
         self.clear_buffer();
         // Getting the (x,y) position of the top-left most point of the camera
-        for object in &*world {
+        for object in world.iter() {
 
             // Getting the surfaces of the cube
             let surfaces = object.get_surfaces();
@@ -67,79 +67,48 @@ impl Camera {
             y_basis.normalize_as_vector();
             let mut z_basis = (self.transform.quaternion * Quaternion::from(&[0.0,0.0,-1.0])) * self.transform.quaternion.get_inverse();
             z_basis.normalize_as_vector();
+
             // Note: The raster's normal vector is the negative of the z_basis because the camera's line of sight is along it's -z axis.
             // Getting the top-left most vertex of the raster after applying it's stored translation and rotation
 
             // Plane's equation: A(x-x0)+B(y-y0)+C(z-z0) = 0 where unit_norm = < A, B, C>  
+            for mut surface in surfaces {
+                for point in surface.iter_mut() {
 
-            let surfaces: Vec<[[usize;3];3]> = surfaces
-                .iter()
-                // Get point coords w.r.t to the camera's position 
-                // ( It has an inverted z-axis because its line of sight is positioned along the -z axis...)
-                // So Vertex' = ( Vertex - V_0 ) with an inverted z-component
-                .map(|surface| -> [[f64;3];3] {
-                    let mut plane_surface:[[f64;3];3] = [[0.0;3];3];
-                    let mut i = 0;
-                    for point in surface{
-                        let temp_point = [point[0]-x_0,point[1]-y_0,point[2]-z_0];
-                        // Getting the points relative to the camera's position
-                        let mut new_point = [0.0;3];
-                        // Swapping from world coords to camera coords
+                    let temp_point = [point[0]-x_0, point[1]-y_0, point[2]-z_0];
+                    // Getting the points relative to the camera's position
+                    // Swapping from world coords to camera coords
+            
+                    // x = V' * x_basis
+                    point[0] = x_basis.x * temp_point[0] + x_basis.y * temp_point[1] + x_basis.z * temp_point[2];
+                    // y = V' * y_basis
+                    point[1] = y_basis.x * temp_point[0] + y_basis.y * temp_point[1] + y_basis.z * temp_point[2];
+                    // z = V' * z_basis
+                    point[2] = z_basis.x * temp_point[0] + z_basis.y * temp_point[1] + z_basis.z * temp_point[2];
+            
+                    // PERSPECTIVE DIVIDE STEP
+                    point[0] = point[0] / ( -1.0 * point[2] as f64);       
+                    point[1] = point[1] / ( -1.0 * point[2] as f64);
+                }
+            
+                if self.in_view(&surface[0]) && self.in_view(&surface[1]) && self.in_view(&surface[2]) {
+                        for point in surface.iter_mut() {
+                            // X-values
+                            point[0] = ((point[0] * self.width as f64/2.0) + self.width as f64/2.0).round();
+                            // Y-values
+                            point[1] = ((point[1] * self.height as f64/2.0) + self.height as f64/2.0).round();
+                            // orthogonal distance from raster mapped to a brightness 0-255
+                            point[2] = 255.0 - ((point[2].abs().powi(2)/1.5)).clamp(0.0,255.0); 
+                        }   
+                    self.draw_triangle(surface);
 
-                        // x = V' * x_basis
-                        new_point[0] = x_basis.x * temp_point[0] + x_basis.y * temp_point[1] + x_basis.z * temp_point[2];
-                        // y = V' * y_basis
-                        new_point[1] = y_basis.x * temp_point[0] + y_basis.y * temp_point[1] + y_basis.z * temp_point[2];
-                        // z = V' * z_basis
-                        new_point[2] = z_basis.x * temp_point[0] + z_basis.y * temp_point[1] + z_basis.z * temp_point[2];
-
-                        // PERSPECTIVE DIVIDE STEP
-                        new_point[0] = new_point[0] / ( -1.0 * new_point[2]);       
-                        new_point[1] = new_point[1] / ( -1.0 * new_point[2]);
-                        
-                        // Creating the new surface using the new points
-                        plane_surface[i] = [new_point[0], new_point[1], new_point[2]];
-                        // Note: All points in the field of view should lie withing a [-1,1] square.
-                        i = i + 1;
-                    }
-                    return plane_surface
-                })
-
-                // filtering out surfaces which are outside the field of view
-                .filter(|surface| {
-                    // Checking if all points in the surface are within the grid
-                           self.in_view(&surface[0])
-                        && self.in_view(&surface[1])
-                        && self.in_view(&surface[2])
-                })
-
-                // Converting from NDC (Normalized Device Coordinates) to screen coordinates
-                // and setting a temporary alpha value to the pixels in the surface directly
-                .map(|surface| -> [[usize;3];3]{
-                    let mut grid_surface:[[usize;3];3] = [[0;3];3];
-                    //println!("{:?}",surface); 
-                    let mut i = 0;
-                    for point in surface{
-                        // X-values
-                        grid_surface[i][0] = ((point[0] * self.width as f64/2.0) + self.width as f64/2.0).round() as usize;
-                        // Y-values
-                        grid_surface[i][1] = ((point[1] * self.height as f64/2.0) + self.height as f64/2.0).round() as usize;
-                        // orthogonal distance from raster mapped to a brightness 0-255
-                        grid_surface[i][2] = 255 - ((point[2].abs().powi(2)/1.5)).clamp(0.0,255.0) as usize; 
-                        // grid_surface[i][2] = 255;    
-                        i = i + 1;
-                    }
-
-                    return grid_surface
-                })                
-                .collect();
-            // Drawing the triangle:
-            for surface in surfaces {   
-                self.draw_triangle(&surface);
+                }
             }
 
             // Clear out the z-buffer for the frame
-            self.z_buffer =  vec![vec![0; self.height]; self.width];
+            for vector in &mut self.z_buffer {
+                vector.fill(0);
+            }
         }
 
     }
@@ -152,22 +121,17 @@ impl Camera {
         self.buffer = vec![vec![0; self.height]; self.width];
     }
 
-    fn draw_triangle(&mut self, surface: &[[usize; 3]; 3]) {
-        let point1 = surface[0];
-        let point2 = surface[1];
-        let point3 = surface[2];
+    fn draw_triangle(&mut self, surface: [[f64; 3]; 3]) {
+        let point1 = [surface[0][0] as usize ,surface[0][1] as usize ,surface[0][2] as usize];
+        let point2 = [surface[1][0] as usize ,surface[1][1] as usize ,surface[1][2] as usize];
+        let point3 = [surface[2][0] as usize ,surface[2][1] as usize ,surface[2][2] as usize];
 
         // Getting bounds for the subsection of the screen the triangle is drawn to
         let x_min = ((point1[0]).min(point2[0])).min(point3[0]);
-        let x_max = ((point1[0]).max(point2[0])).max(point3[0]);
+        let x_max = ((point1[0]).max(point2[0])).max(point3[0]).min(self.width-1);
         let y_min = ((point1[1]).min(point2[1])).min(point3[1]);
-        let y_max = ((point1[1]).max(point2[1])).max(point3[1]);
+        let y_max = ((point1[1]).max(point2[1])).max(point3[1]).min(self.height-1);
 
-
-        // Making a temporary per-triangle buffer for intermediate processing
-        // Stores the u8 (0-255) alpha value and a flag for if there is a pixel present at the location
-
-        //let mut triangle_buffer: Vec<Vec<(u8,bool)>> = vec![vec![(0,false); (y_range) + 1]; (x_range) + 1];
         // Plotting the three lines that make up the surfaces boundary
         // Line P1->P2
         self.plot_line(
@@ -231,9 +195,6 @@ impl Camera {
                 let val = self.triangle_buffer[x][y].0;
                 // Clear the triangle buffer
                 self.triangle_buffer[x][y] = (0,false);
-                if x == self.width || y == self.height {
-                    break
-                }
 
                 // If the pixel is closer (brighter) than the one in the z_buffer, add it to the z_buffer and draw it
                 if val > self.z_buffer[x][y]{

@@ -1,9 +1,10 @@
 use crate::objects::*;
+use crate::vertex::*;
 pub struct Camera {
     transform: Transform,
     buffer: Vec<Vec<u8>>,
-    triangle_buffer: Vec<Vec<(u8,bool)>>,
-    z_buffer: Vec<Vec<u8>>,
+    triangle_buffer: Vec<Vec<()>>,
+    z_buffer: Vec<Vec<f64>>,
     width: usize,
     height: usize,
 }
@@ -17,9 +18,6 @@ impl Transformable for Camera {
     }
 }
 
-pub fn lerp(a: f64, b: f64, t: f64) -> f64 {
-    return a * t + b * (1.0 - t);
-}
 
 impl Camera {
     pub fn new(position: &[f64; 3], width: &usize, height: &usize) -> Self {
@@ -73,7 +71,7 @@ impl Camera {
 
             // Plane's equation: A(x-x0)+B(y-y0)+C(z-z0) = 0 where unit_norm = < A, B, C > 
  
-            'surface_loop: for mut surface in surfaces {
+            'surface_rendering_loop: for mut surface in surfaces {
                 for point in surface.iter_mut() {
 
                     let temp_point = [point[0]-x_0, point[1]-y_0, point[2]-z_0];
@@ -94,16 +92,16 @@ impl Camera {
                     // If the triangle would not be in view
                     if !self.in_view(&point){
                         // Skip that surface
-                        continue 'surface_loop
+                        continue 'surface_rendering_loop
                     }
 
                     // X-values
                     point[0] = ((point[0] * self.width as f64/2.0) + self.width as f64/2.0).round();
                     // Y-values
                     point[1] = ((point[1] * self.height as f64/2.0) + self.height as f64/2.0).round();
+
                     // Orthogonal distance from raster mapped to a brightness 0-255
                     // point[2] = 255.0 - ((point[2].abs().powi(2)/1.5)).clamp(0.0,255.0); 
-
 
                     let distance_from_origin = ((temp_point[0] + x_0).powi(2) + (temp_point[1] + y_0).powi(2) + (temp_point[2] + z_0).powi(2)).sqrt();
                     if distance_from_origin < 1.0{
@@ -111,7 +109,7 @@ impl Camera {
                         point[2] = (255.0 as f64 *lighting_factor).clamp(0.0,255.0)
                     }
                     else {
-                        let lighting_factor = 500.0 / (distance_from_origin).powi(2);
+                        let lighting_factor = 50.0 / (distance_from_origin).powi(2);
                         point[2] = (255.0 as f64 * lighting_factor).clamp(0.0,255.0);
                     }
                 }   

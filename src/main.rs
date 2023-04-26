@@ -1,5 +1,6 @@
 mod objects;
 mod camera;
+mod vertex;
 use minifb::*;
 use objects::*;
 use camera::*;
@@ -35,12 +36,13 @@ fn main() {
     let mut world = Vec::new(); 
    
     world.push(Object::new(
-        5.0,
-        &[0.0,0.0, 10.0],
+        1.0,
+        &[0.0,0.0, 0.0],
         Quaternion::new(PI, &[1.0, 0.0, 0.0]),
-        "./Kitchen.obj".to_string()
+        "./eren.obj".to_string()
         
     ));
+
 
     // Creating an empty window buffer for minifb to update the window with
     let mut window_buffer: Vec<u32> = Vec::new();
@@ -95,11 +97,11 @@ fn main() {
         }
         if window.is_key_down(Key::Left){
             // Look left
-            camera1.rotate(-PI/200.0,[0.0, 1.0, 0.0]);
+            camera1.rotate_globally(-PI/200.0,[0.0, 1.0, 0.0]);
         }
         if window.is_key_down(Key::Right){
             // Look right
-            camera1.rotate(PI/200.0,[0.0, 1.0, 0.0]);
+            camera1.rotate_globally(PI/200.0,[0.0, 1.0, 0.0]);
         }
         if window.is_key_down(Key::LeftShift){
             // Go down

@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 use tobj::*;
+
 #[derive(Copy, Clone)]
 #[derive(Debug)]
 pub struct Quaternion {
@@ -15,8 +16,8 @@ pub struct Object {
 }
 
 pub struct Transform {
-    pub position: [f64; 3],     // Position vector
-    pub quaternion: Quaternion, // Rotation quaternion to track orientation in space
+    pub position: [f64; 3],     // Position 
+    pub quaternion: Quaternion, // Rotation
 }
 
 pub trait Transformable {
@@ -30,14 +31,13 @@ pub trait Transformable {
         }
     }
 
-    // fn local_translate(&vector: &[f64;3]){
-
-    // }
+    fn rotate_globally(&mut self, angle:f64, axis:[f64;3]) {
+        let mut quaternion = Quaternion::new(angle,&axis);
+        quaternion.normalize();
+        self.transform_mut().quaternion =  quaternion * self.transform_mut().quaternion.normalize() ;
+    }
 
     fn rotate(&mut self, angle:f64, axis:[f64;3]) {
-        // Converting from global coords to local coords
-        // let pos = self.transform().position;
-        // let axis = [axis[0] + pos[0],axis[1] + pos[1],axis[2] + pos[2]];
         let mut quaternion = Quaternion::new(angle,&axis);
         quaternion.normalize();
         self.transform_mut().quaternion = self.transform_mut().quaternion.normalize() * quaternion;

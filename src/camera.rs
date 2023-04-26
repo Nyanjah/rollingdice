@@ -59,20 +59,21 @@ impl Camera {
 
             // Getting the position of the viewing frustum
             let (x_0, y_0, z_0) = (self.transform.position[0], self.transform.position[1], self.transform.position[2]);
-
+            let quat = self.transform.quaternion; 
             // Getting the basis vectors of the camera's coordinate system
-            let mut x_basis = (self.transform.quaternion * Quaternion::from(&[1.0,0.0,0.0])) * self.transform.quaternion.get_inverse();
+            let mut x_basis = (quat * Quaternion::from(&[1.0,0.0,0.0])) * quat.get_inverse();
             x_basis.normalize_as_vector();
-            let mut y_basis = (self.transform.quaternion * Quaternion::from(&[0.0,1.0,0.0])) * self.transform.quaternion.get_inverse();
+            let mut y_basis = (quat * Quaternion::from(&[0.0,1.0,0.0])) * quat.get_inverse();
             y_basis.normalize_as_vector();
-            let mut z_basis = (self.transform.quaternion * Quaternion::from(&[0.0,0.0,-1.0])) * self.transform.quaternion.get_inverse();
+            let mut z_basis = (quat * Quaternion::from(&[0.0,0.0,-1.0])) * quat.get_inverse();
             z_basis.normalize_as_vector();
 
             // Note: The raster's normal vector is the negative of the z_basis because the camera's line of sight is along it's -z axis.
             // Getting the top-left most vertex of the raster after applying it's stored translation and rotation
 
-            // Plane's equation: A(x-x0)+B(y-y0)+C(z-z0) = 0 where unit_norm = < A, B, C>  
-            for mut surface in surfaces {
+            // Plane's equation: A(x-x0)+B(y-y0)+C(z-z0) = 0 where unit_norm = < A, B, C > 
+ 
+            'surface_loop: for mut surface in surfaces {
                 for point in surface.iter_mut() {
 
                     let temp_point = [point[0]-x_0, point[1]-y_0, point[2]-z_0];
@@ -89,21 +90,34 @@ impl Camera {
                     // PERSPECTIVE DIVIDE STEP
                     point[0] = point[0] / ( -1.0 * point[2] as f64);       
                     point[1] = point[1] / ( -1.0 * point[2] as f64);
-                }
-            
-                if self.in_view(&surface[0]) && self.in_view(&surface[1]) && self.in_view(&surface[2]) {
-                        for point in surface.iter_mut() {
-                            // X-values
-                            point[0] = ((point[0] * self.width as f64/2.0) + self.width as f64/2.0).round();
-                            // Y-values
-                            point[1] = ((point[1] * self.height as f64/2.0) + self.height as f64/2.0).round();
-                            // orthogonal distance from raster mapped to a brightness 0-255
-                            point[2] = 255.0 - ((point[2].abs().powi(2)/1.5)).clamp(0.0,255.0); 
-                        }   
+                    
+                    // If the triangle would not be in view
+                    if !self.in_view(&point){
+                        // Skip that surface
+                        continue 'surface_loop
+                    }
+
+                    // X-values
+                    point[0] = ((point[0] * self.width as f64/2.0) + self.width as f64/2.0).round();
+                    // Y-values
+                    point[1] = ((point[1] * self.height as f64/2.0) + self.height as f64/2.0).round();
+                    // Orthogonal distance from raster mapped to a brightness 0-255
+                    // point[2] = 255.0 - ((point[2].abs().powi(2)/1.5)).clamp(0.0,255.0); 
+
+
+                    let distance_from_origin = ((temp_point[0] + x_0).powi(2) + (temp_point[1] + y_0).powi(2) + (temp_point[2] + z_0).powi(2)).sqrt();
+                    if distance_from_origin < 1.0{
+                        let lighting_factor = 1.0;
+                        point[2] = (255.0 as f64 * lighting_factor).clamp(0.0,255.0)
+                    }
+                    else {
+                        let lighting_factor = 100.0 / (distance_from_origin).powi(2);
+                        point[2] = (255.0 as f64 * lighting_factor).clamp(0.0,255.0);
+                    }
+                }   
                     self.draw_triangle(surface);
 
                 }
-            }
 
             // Clear out the z-buffer for the frame
             for vector in &mut self.z_buffer {
@@ -133,6 +147,7 @@ impl Camera {
         let y_max = ((point1[1]).max(point2[1])).max(point3[1]).min(self.height-1);
 
         // Plotting the three lines that make up the surfaces boundary
+
         // Line P1->P2
         self.plot_line(
             &point1[0],

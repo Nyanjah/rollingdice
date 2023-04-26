@@ -30,18 +30,18 @@ fn main() {
         panic!("{}", e);
     });
 
-    let mut camera1 = Camera::new(&[0.0, 0.0, -15.0], &WIDTH, &HEIGHT);
+    let mut camera1 = Camera::new(&[0.0, 0.0, -4.0], &WIDTH, &HEIGHT);
    
     let mut world = Vec::new(); 
     
     world.push(Object::new(
-        1.0,
+        1.5,
         &[0.0,0.0, 10.0],
-        Quaternion::new(PI, &[0.0, 0.0, 1.0]),
-        "./eren.obj".to_string()
+        Quaternion::new(PI, &[1.0, 0.0, 0.0]),
+        "./knuckles.obj".to_string()
         
     ));
-
+    
     // Creating an empty window buffer for minifb to update the window with
     let mut window_buffer: Vec<u32> = Vec::new();
     // (Optional) Limit the window update rate to control CPU usage

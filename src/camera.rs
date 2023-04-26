@@ -108,10 +108,10 @@ impl Camera {
                     let distance_from_origin = ((temp_point[0] + x_0).powi(2) + (temp_point[1] + y_0).powi(2) + (temp_point[2] + z_0).powi(2)).sqrt();
                     if distance_from_origin < 1.0{
                         let lighting_factor = 1.0;
-                        point[2] = (255.0 as f64 * lighting_factor).clamp(0.0,255.0)
+                        point[2] = (255.0 as f64 *lighting_factor).clamp(0.0,255.0)
                     }
                     else {
-                        let lighting_factor = 100.0 / (distance_from_origin).powi(2);
+                        let lighting_factor = 500.0 / (distance_from_origin).powi(2);
                         point[2] = (255.0 as f64 * lighting_factor).clamp(0.0,255.0);
                     }
                 }   

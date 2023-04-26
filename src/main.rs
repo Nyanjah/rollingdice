@@ -5,8 +5,8 @@ use objects::*;
 use camera::*;
 use std::f64::consts::PI;
 
-const WIDTH: usize = 1080;
-const HEIGHT: usize = 720;
+const WIDTH: usize = 240;
+const HEIGHT: usize = 135;
 const SECONDS_PER_FRAME: f32 = 1.0/60.0; // MAX 60 FPS
 
 fn main() {
@@ -19,7 +19,7 @@ fn main() {
             borderless: false,
             title: true,
             resize: true,
-            scale: Scale::X1,
+            scale: Scale::X4,
             scale_mode: ScaleMode::Stretch,
             transparency: false,
             none: false,
@@ -33,15 +33,15 @@ fn main() {
     let mut camera1 = Camera::new(&[0.0, 0.0, -4.0], &WIDTH, &HEIGHT);
    
     let mut world = Vec::new(); 
-    
+   
     world.push(Object::new(
-        1.5,
+        5.0,
         &[0.0,0.0, 10.0],
         Quaternion::new(PI, &[1.0, 0.0, 0.0]),
-        "./knuckles.obj".to_string()
+        "./Kitchen.obj".to_string()
         
     ));
-    
+
     // Creating an empty window buffer for minifb to update the window with
     let mut window_buffer: Vec<u32> = Vec::new();
     // (Optional) Limit the window update rate to control CPU usage
@@ -51,7 +51,7 @@ fn main() {
     while window.is_open() && !window.is_key_down(Key::Escape) {
         // Rotate every cube +PI/200 radians about the vector <0,1,1>
         for cube in &mut world {
-            cube.rotate(PI / 100.0, [0.0, 1.0, 0.0]);
+            //cube.rotate(PI / 100.0, [0.0, 1.0, 0.0]);
         }
         // Take a snapshot with the camera
         camera1.update_buffer_with_surfaces(&world);
@@ -65,7 +65,6 @@ fn main() {
                 window_buffer.push((pixel << 16 | pixel << 8 | pixel ) as u32)
             }
         }
-        
 
         // Update the window with the prepared frame
         window.update_with_buffer(&window_buffer, WIDTH, HEIGHT).unwrap();

@@ -6,8 +6,8 @@ use objects::*;
 use camera::*;
 use std::f64::consts::PI;
 
-const WIDTH: usize = 240;
-const HEIGHT: usize = 135;
+const WIDTH: usize = 1920;
+const HEIGHT: usize = 1080;
 const SECONDS_PER_FRAME: f32 = 1.0/60.0; // MAX 60 FPS
 
 fn main() {
@@ -20,7 +20,7 @@ fn main() {
             borderless: false,
             title: true,
             resize: true,
-            scale: Scale::X4,
+            scale: Scale::X1,
             scale_mode: ScaleMode::Stretch,
             transparency: false,
             none: false,
@@ -64,7 +64,7 @@ fn main() {
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
                 let pixel = camera1.buffer()[x][y] as u32;
-                window_buffer.push((pixel << 16 | pixel << 8 | pixel ) as u32)
+                window_buffer.push(pixel)
             }
         }
 

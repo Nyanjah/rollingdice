@@ -2,8 +2,8 @@ use crate::objects::*;
 use crate::vertex::*;
 pub struct Camera {
     transform: Transform,
-    buffer: Vec<Vec<u8>>,
-    triangle_buffer: Vec<Vec<()>>,
+    buffer: Vec<Vec<u32>>,
+    triangle_buffer: Vec<Vec<(Vertex,bool)>>,
     z_buffer: Vec<Vec<f64>>,
     width: usize,
     height: usize,
@@ -26,16 +26,16 @@ impl Camera {
                 position: *position,
                 quaternion: Quaternion::new(0.0, &[1.0, 1.0, 1.0]),
             },
-            buffer: vec![vec![0; *height]; *width],
-            z_buffer: vec![vec![0; *height]; *width],
-            triangle_buffer: vec![vec![(0,false); *height+1]; *width+1],
+            buffer: vec![vec![0;*height];*width],
+            z_buffer: vec![vec![0.0;*height];*width],
+            triangle_buffer: vec![vec![(Vertex::new([0.0,0.0,0.0],[0.0,0.0,0.0],[0.0,0.0]),false);*height + 1];*width + 1],
             width: *width,
             height: *height,
         };
     }
 
-    pub fn in_view(&self, point: &[f64; 3]) -> bool {
-        let (x,y,z) = (point[0],point[1],point[2]);
+    pub fn in_view(&self, vertex: &Vertex) -> bool {
+        let (x,y,z) = (vertex.pos[0],vertex.pos[1],vertex.pos[2]);
         // x and y values should be withing [-1,1]
         if 
         x >= -1.0 && x <= 1.0 && y >= -1.0 && y <= 1.0 &&
@@ -53,7 +53,8 @@ impl Camera {
         for object in world.iter() {
 
             // Getting the surfaces of the cube
-            let surfaces = object.get_surfaces();
+            let triangles = object.get_triangles();
+            let mut vertices = object.get_transformed_vertices();
 
             // Getting the position of the viewing frustum
             let (x_0, y_0, z_0) = (self.transform.position[0], self.transform.position[1], self.transform.position[2]);
@@ -71,61 +72,55 @@ impl Camera {
 
             // Plane's equation: A(x-x0)+B(y-y0)+C(z-z0) = 0 where unit_norm = < A, B, C > 
  
-            'surface_rendering_loop: for mut surface in surfaces {
-                for point in surface.iter_mut() {
-
-                    let temp_point = [point[0]-x_0, point[1]-y_0, point[2]-z_0];
-                    // Getting the points relative to the camera's position
-                    // Swapping from world coords to camera coords
-            
-                    // x = V' * x_basis
-                    point[0] = x_basis.x * temp_point[0] + x_basis.y * temp_point[1] + x_basis.z * temp_point[2];
-                    // y = V' * y_basis
-                    point[1] = y_basis.x * temp_point[0] + y_basis.y * temp_point[1] + y_basis.z * temp_point[2];
-                    // z = V' * z_basis
-                    point[2] = z_basis.x * temp_point[0] + z_basis.y * temp_point[1] + z_basis.z * temp_point[2];
-            
-                    // PERSPECTIVE DIVIDE STEP
-                    point[0] = point[0] / ( -1.0 * point[2] as f64);       
-                    point[1] = point[1] / ( -1.0 * point[2] as f64);
-                    
-                    // If the triangle would not be in view
-                    if !self.in_view(&point){
-                        // Skip that surface
-                        continue 'surface_rendering_loop
-                    }
-
-                    // X-values
-                    point[0] = ((point[0] * self.width as f64/2.0) + self.width as f64/2.0).round();
-                    // Y-values
-                    point[1] = ((point[1] * self.height as f64/2.0) + self.height as f64/2.0).round();
-
-                    // Orthogonal distance from raster mapped to a brightness 0-255
-                    // point[2] = 255.0 - ((point[2].abs().powi(2)/1.5)).clamp(0.0,255.0); 
-
-                    let distance_from_origin = ((temp_point[0] + x_0).powi(2) + (temp_point[1] + y_0).powi(2) + (temp_point[2] + z_0).powi(2)).sqrt();
-                    if distance_from_origin < 1.0{
-                        let lighting_factor = 1.0;
-                        point[2] = (255.0 as f64 *lighting_factor).clamp(0.0,255.0)
-                    }
-                    else {
-                        let lighting_factor = 50.0 / (distance_from_origin).powi(2);
-                        point[2] = (255.0 as f64 * lighting_factor).clamp(0.0,255.0);
-                    }
-                }   
-                    self.draw_triangle(surface);
-
+            'vertex_projection_loop: for mut vertex in vertices.iter_mut() {
+                
+                let temp_point = [vertex.pos[0]-x_0, vertex.pos[1]-y_0, vertex.pos[2]-z_0];
+                // Getting the points relative to the camera's position
+                // Swapping from world coords to camera coords
+        
+                // x = V' * x_basis
+                vertex.pos[0] = x_basis.x * temp_point[0] + x_basis.y * temp_point[1] + x_basis.z * temp_point[2];
+                // y = V' * y_basis
+                vertex.pos[1] = y_basis.x * temp_point[0] + y_basis.y * temp_point[1] + y_basis.z * temp_point[2];
+                // z = V' * z_basis
+                vertex.pos[2] = z_basis.x * temp_point[0] + z_basis.y * temp_point[1] + z_basis.z * temp_point[2];
+        
+                // PERSPECTIVE DIVIDE STEP
+                vertex.pos[0] = vertex.pos[0] / ( -1.0 * vertex.pos[2] as f64);       
+                vertex.pos[1] = vertex.pos[1] / ( -1.0 * vertex.pos[2] as f64);
+                
+                // If the vertex would not be in view, discard that vertex and move on
+                if !self.in_view(&vertex){
+                    // We need to set the vertex to something special to signify that is has been discarded.
+                    vertex.pos[0] = 1234567890.123456789012345678901234567890;
+                    // Skip to the next vertex
+                    continue 'vertex_projection_loop
+                
                 }
+                // X-values
+                vertex.pos[0] = ((vertex.pos[0] * self.width as f64/2.0) + self.width as f64/2.0).round();
+                // Y-values
+                vertex.pos[1] = ((vertex.pos[1] * self.height as f64/2.0) + self.height as f64/2.0).round();
+            }
 
+
+            // This should ONLY BE CALLED if ALL of the vertices the triangles indices correspond to are still valid
+            for triangle in triangles{
+                // We only draw the triangle if it doesn't contain any vertices which are marked as discarded with the special value
+                if !triangle.iter().any(|i| {vertices[*i].pos[0] == 1234567890.123456789012345678901234567890 }) {
+                    self.draw_triangle(vertices[triangle[0]],vertices[triangle[1]], vertices[triangle[2]]);
+                }  
+                
             // Clear out the z-buffer for the frame
             for vector in &mut self.z_buffer {
-                vector.fill(0);
+                vector.fill(0.0);
             }
         }
+    }
 
     }
 
-    pub fn buffer(&self) -> &Vec<Vec<u8>> {
+    pub fn buffer(&self) -> &Vec<Vec<u32>> {
         return &self.buffer;
     }
 
@@ -133,68 +128,42 @@ impl Camera {
         self.buffer = vec![vec![0; self.height]; self.width];
     }
 
-    fn draw_triangle(&mut self, surface: [[f64; 3]; 3]) {
-        let point1 = [surface[0][0] as usize ,surface[0][1] as usize ,surface[0][2] as usize];
-        let point2 = [surface[1][0] as usize ,surface[1][1] as usize ,surface[1][2] as usize];
-        let point3 = [surface[2][0] as usize ,surface[2][1] as usize ,surface[2][2] as usize];
+    fn draw_triangle(&mut self, vertex_1:Vertex,vertex_2:Vertex,vertex_3:Vertex) {
+        // Extracting the three vertices which make up the triangle
 
         // Getting bounds for the subsection of the screen the triangle is drawn to
-        let x_min = ((point1[0]).min(point2[0])).min(point3[0]);
-        let x_max = ((point1[0]).max(point2[0])).max(point3[0]).min(self.width-1);
-        let y_min = ((point1[1]).min(point2[1])).min(point3[1]);
-        let y_max = ((point1[1]).max(point2[1])).max(point3[1]).min(self.height-1);
+        let x_min = ((vertex_1.pos[0]).min(vertex_2.pos[0])).min(vertex_3.pos[0]) as usize;
+        let x_max = ((vertex_1.pos[0]).max(vertex_2.pos[0])).max(vertex_3.pos[0]).min((self.width-1) as f64) as usize;
+        let y_min = ((vertex_1.pos[1]).min(vertex_2.pos[1])).min(vertex_3.pos[1]) as usize;
+        let y_max = ((vertex_1.pos[1]).max(vertex_2.pos[1])).max(vertex_3.pos[1]).min((self.height-1) as f64) as usize;
 
-        // Plotting the three lines that make up the surfaces boundary
+        // Plotting the three lines into the triangle buffer that make up the triangle's perimeter
 
-        // Line P1->P2
-        self.plot_line(
-            &point1[0],
-            &point1[1],
-            &point2[0],
-            &point2[1],
-            &point1[2],
-            &point2[2],
-        );
+        self.plot_line(&vertex_1,&vertex_2); // Line P1->P2
+        self.plot_line(&vertex_2,&vertex_3); // Line P2->P3
+        self.plot_line(&vertex_3,&vertex_1);          // Line P3->P1
 
-        // Line P2->P3
-        self.plot_line(
-            &point2[0],
-            &point2[1],
-            &point3[0],
-            &point3[1],
-            &point2[2],
-            &point3[2],
-        );
+      
 
-        // Line P3->P1
-        self.plot_line(
-            &point3[0],
-            &point3[1],
-            &point1[0],
-            &point1[1],
-            &point3[2],
-            &point1[2],
-        );
-        
         //Iterating over the sub-section the screen is drawn to and applying the scanline algorithm
         for y in y_min..y_max {
         'draw_loop:for x in x_min..x_max {
                 // If there is a pixel drawn at [x][y] & not at [x+1][y]
-                if self.triangle_buffer[x][y].1 == true && self.triangle_buffer[x+1][y].1 == false {
+                if self.triangle_buffer[x][y].1  && !self.triangle_buffer[x][y].1  {
                     let first_pixel = (x, y);
                     for x_i in ((first_pixel.0 + 1)..(x_max)).rev() {
                         // If there is a not a pixel drawn at [x_i][y] and one drawn at [x_i+1][y]
-                        if self.triangle_buffer[x_i][y].1 == false && self.triangle_buffer[x_i+1][y].1 == true {
+                        if !self.triangle_buffer[x_i][y].1 && self.triangle_buffer[x_i + 1][y].1 {
                             let second_pixel = (x_i+1, y);
                             // Plot the line between the two pixels
+                            let first_point = self.triangle_buffer[first_pixel.0][first_pixel.1].0;
+                            let second_point = self.triangle_buffer[second_pixel.0][second_pixel.1].0;
+                            
                             self.plot_line(
-                                &first_pixel.0,
-                                &first_pixel.1,
-                                &second_pixel.0,
-                                &second_pixel.1,
-                                &(self.triangle_buffer[first_pixel.0][first_pixel.1].0 as usize),
-                                &(self.triangle_buffer[second_pixel.0][second_pixel.1].0 as usize),
+                                &first_point,
+                                &second_point,
                             );
+
                             // Exit the loop for the current y-value
                             break 'draw_loop;
                         }
@@ -205,14 +174,17 @@ impl Camera {
         // Inserting the triangle into the camera's buffer
         for x in x_min..=x_max {
             for y in y_min..=y_max {
-                let val = self.triangle_buffer[x][y].0;
-                // Clear the triangle buffer
-                self.triangle_buffer[x][y] = (0,false);
-
-                // If the pixel is closer (brighter) than the one in the z_buffer, add it to the z_buffer and draw it
-                if val > self.z_buffer[x][y]{
-                    self.z_buffer[x][y] = val;
-                    self.buffer[x][y] = val;
+                let vertex = self.triangle_buffer[x][y].0;
+                // Setting the pixel_present flag in the corresponding entry of triangle buffer to false
+                self.triangle_buffer[x][y].1 = false;
+                // If the pixel is closer than the one in the z_buffer
+              
+                if -1.0 * vertex.pos[2] > self.z_buffer[x][y]{
+                    // Overwrite the value stored in the z-buffer with the pixel's distance
+                    self.z_buffer[x][y] = vertex.pos[2];
+                    // Call the vertex shader to get the u32 RGB value to be placed in the final frame
+                    self.buffer[x][y] = vertex.shader();
+                    
                 }
            }
         }
@@ -220,124 +192,129 @@ impl Camera {
 
     fn plot_line(
         &mut self,
-        x_0: &usize,
-        y_0: &usize,
-        x_1: &usize,
-        y_1: &usize,
-        alpha_1: &usize,
-        apha_0: &usize,
+        vertex_0: &Vertex,
+        vertex_1: &Vertex,
     ) {
+        // Extracting the vertex coordinates
+        let (mut x_0,mut y_0) = (vertex_0.pos[0] as i32, vertex_0.pos[1] as i32);
+        let (mut x_1,mut y_1) = (vertex_1.pos[0] as i32, vertex_1.pos[1] as i32);
+        // plot_line_low and plot_line_high should place the pixels.
 
-        let buffer = &mut self.triangle_buffer;
-        let pixels_to_plot:Vec<(usize, usize, usize)> = {
-            
-        if (*y_1 as i32 - *y_0 as i32).abs() < (*x_1 as i32 - *x_0 as i32).abs() {
+        if (y_1 as i32 - y_0 as i32).abs() < (x_1 as i32 - x_0 as i32).abs() {
             if x_0 > x_1 {
-                plot_line_low(x_1, y_1, x_0, y_0, alpha_1, apha_0)
+                self.plot_line_low(vertex_1, vertex_0);
             } else {
-                plot_line_low(x_0, y_0, x_1, y_1, apha_0, alpha_1)
+                self.plot_line_low(vertex_0,vertex_1);
             }
         } else {
             if y_0 > y_1 {
-                plot_line_high(x_1, y_1, x_0, y_0, alpha_1, apha_0)
+                self.plot_line_high(vertex_1,vertex_0);
             } else {
-                plot_line_high(x_0, y_0, x_1, y_1, apha_0, alpha_1)
+                self.plot_line_high(vertex_0,vertex_1);
             }
-        }};
+        };
 
-        let x_bound = buffer.len();
-        let y_bound = buffer[0].len();
+    }
 
-        for pixel in pixels_to_plot.iter().filter(|pixel| {
-            if pixel.0 > x_bound - 1 || pixel.1 > y_bound -1 {
-                false
+    // fn plot_line_between_existing_pixels(
+    //     &mut self,
+    //     coord1: (usize,usize),
+    //     coord2: (usize,usize),
+    // ) {
+    //     let vertex_0 = self.triangle_buffer[coord1.0][coord1.1].0;
+    //     let vertex_1 = self.triangle_buffer[coord2.0][coord2.1].0;
+
+    //     // Extracting the vertex coordinates
+    //     let (mut x_0,mut y_0) = (vertex_0.pos[0] as i32, vertex_0.pos[1] as i32);
+    //     let (mut x_1,mut y_1) = (vertex_1.pos[0] as i32, vertex_1.pos[1] as i32);
+    //     // plot_line_low and plot_line_high should place the pixels.
+
+    //     if (y_1 as i32 - y_0 as i32).abs() < (x_1 as i32 - x_0 as i32).abs() {
+    //         if x_0 > x_1 {
+    //             self.plot_line_low_between_existing_pixels(vertex_1, vertex_0);
+    //         } else {
+    //             self.plot_line_low_between_existing_pixels(vertex_0,vertex_1);
+    //         }
+    //     } else {
+    //         if y_0 > y_1 {
+    //             self.plot_line_high(vertex_1,vertex_0);
+    //         } else {
+    //             self.plot_line_high(vertex_0,vertex_1);
+    //         }
+    //     };
+
+    // }
+
+
+    // Takes in two points and returns a vector of points to color in the raster
+    fn plot_line_low(
+        &mut self,
+        vertex_0: &Vertex,
+        vertex_1: &Vertex,
+    ){  
+
+        let (mut x_0,mut y_0) = (vertex_0.pos[0] as i32, vertex_0.pos[1] as i32);
+        let (mut x_1,mut y_1) = (vertex_1.pos[0] as i32, vertex_1.pos[1] as i32);
+
+        let dx: i32 = x_1 - x_0;
+        let mut dy: i32 = y_1 - y_0;
+        let mut y_i: i32 = 1;
+        if dy < 0 {
+            y_i = -1;
+            dy = -1 * dy as i32;
+        }
+        let mut d = 2 * dy - dx;
+        let mut y = y_0 as i32;
+        for x in x_0..=x_1 {
+            // Place the interpolated vertex directly into the triangle buffer
+            let interpolation_value = ((x - x_0) as f64).abs() / ((x_1 - x_0) as f64).abs();
+            self.triangle_buffer[x as usize][y as usize].0 = vertex_0.interpolate_attributes(vertex_1, interpolation_value);
+            // Setting the pixel-present flag to true
+            self.triangle_buffer[x as usize][y as usize].1 = true;
+
+            if d > 0 {
+                y = y + y_i;
+                d = d + (2 * (dy - dx));
+            } else {
+                d = d + 2 * dy;
             }
-            else {true}
-        })
-        {
-            // Drawing the pixel to the buffer
-            buffer[pixel.0 as usize][pixel.1 as usize].0 = pixel.2 as u8;
-            // Setting the pixel_present flag to True
-            buffer[pixel.0 as usize][pixel.1 as usize].1 = true;
+        }
+    }
+
+    // Takes in two points and returns a vector of points to color in the raster
+    fn plot_line_high(
+        &mut self,
+        vertex_0: &Vertex,
+        vertex_1: &Vertex,
+    ){
+        
+        let (x_0,y_0) = (vertex_0.pos[0] as i32, vertex_0.pos[1] as i32);
+        let (x_1,y_1) = (vertex_1.pos[0] as i32, vertex_1.pos[1] as i32);
+
+        let mut dx = x_1 - x_0;
+        let dy = y_1 - y_0;
+        let mut x_i = 1 as i32;
+        if dx < 0 {
+            x_i = -1;
+            dx = -dx;
+        }
+        let mut d = (2 * dx) - dy;
+        let mut x: i32 = x_0;
+        for y in y_0..=y_1 {
+
+            // Place the interpolated vertex directly into the triangle buffer
+            let interpolation_value = ((y - y_0) as f64).abs() / ((y_1 - y_0) as f64).abs();
+            self.triangle_buffer[x as usize][y as usize].0 = vertex_0.interpolate_attributes(vertex_1, interpolation_value);
+            // Setting the pixel-present flag to true
+            self.triangle_buffer[x as usize][y as usize].1 = true;
+
+            if d > 0 {
+                x = x + x_i;
+                d = d + (2 * (dx - dy));
+            } else {
+                d = d + 2 * dx;
+            }
         }
 
     }
-}
-
-// Takes in two points and returns a vector of points to color in the raster
-fn plot_line_low(
-    x_0: &usize,
-    y_0: &usize,
-    x_1: &usize,
-    y_1: &usize,
-    dist_0: &usize,
-    dist_1: &usize,
-) -> Vec<(usize, usize, usize)> {
-    let mut output = Vec::new();
-    let dx: i32 = *x_1 as i32 - *x_0 as i32;
-    let mut dy: i32 = *y_1 as i32 - *y_0 as i32;
-    let mut y_i: i32 = 1;
-    if dy < 0 {
-        y_i = -1;
-        dy = -1 * dy as i32;
-    }
-    let mut d = 2 * dy - dx;
-    let mut y = *y_0 as i32;
-    for x in *x_0..=*x_1 {
-        output.push((
-            x as usize,
-            y as usize,
-            lerp(
-                *dist_0 as f64,
-                *dist_1 as f64,
-                ((x - x_0) as f64).abs() / ((x_1 - x_0) as f64).abs(),
-            ) as usize,
-        ));
-        if d > 0 {
-            y = y + y_i;
-            d = d + (2 * (dy - dx));
-        } else {
-            d = d + 2 * dy;
-        }
-    }
-    return output;
-}
-
-// Takes in two points and returns a vector of points to color in the raster
-fn plot_line_high(
-    x_0: &usize,
-    y_0: &usize,
-    x_1: &usize,
-    y_1: &usize,
-    dist_0: &usize,
-    dist_1: &usize,
-) -> Vec<(usize, usize, usize)> {
-    let mut output = Vec::new();
-    let mut dx = *x_1 as i32 - *x_0 as i32;
-    let dy = *y_1 as i32 - *y_0 as i32;
-    let mut x_i = 1 as i32;
-    if dx < 0 {
-        x_i = -1;
-        dx = -dx;
-    }
-    let mut d = (2 * dx) - dy;
-    let mut x: i32 = *x_0 as i32;
-    for y in *y_0..=*y_1 {
-        output.push((
-            x as usize,
-            y as usize,
-            lerp(
-                *dist_0 as f64,
-                *dist_1 as f64,
-                ((y - *y_0) as f64).abs() / ((y_1 - y_0) as f64).abs(),
-            ) as usize,
-        ));
-        if d > 0 {
-            x = x + x_i;
-            d = d + (2 * (dx - dy));
-        } else {
-            d = d + 2 * dx;
-        }
-    }
-    return output;
 }

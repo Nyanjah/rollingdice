@@ -1,8 +1,11 @@
 
+
+#[derive(Copy,Clone)]
+#[derive(Debug)]
 pub struct Vertex {
-    pos: [f64;3],
-    normal :[f64;3],
-    tex_coords:[f64;2]
+    pub pos: [f64;3],
+    pub normal :[f64;3],
+    pub tex_coords:[f64;2]
     
 }
 
@@ -24,11 +27,12 @@ impl Vertex {
             tex_coords: [lerp(self.tex_coords[0],vertex.tex_coords[0],val) , lerp(self.tex_coords[1],vertex.tex_coords[1],val)]
         }
     }  
+    
     // Takes in the vertex and outputs its RGBA color encoded as a u32.
     pub fn shader(&self) -> u32 {
 
         // Return (255,255,255)
-        return 255 << 16 & 255 << 8 & 255 ;
+        return 255 << 16 | 255 << 8 | 255 ;
 
     }
 

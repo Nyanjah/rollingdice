@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 use tobj::*;
 
+use crate::vertex::Vertex;
+
 #[derive(Copy, Clone)]
 #[derive(Debug)]
 pub struct Quaternion {
@@ -12,7 +14,8 @@ pub struct Quaternion {
 pub struct Object {
     scale: f64,
     transform: Transform,
-    surfaces: Vec<[[f64;3];3]>
+    triangles: Vec<[usize;3]>,
+    vertices: Vec<Vertex>
 }
 
 pub struct Transform {
@@ -97,6 +100,10 @@ impl Quaternion {
         vector[2] = self.z;
         return vector
     }
+
+    pub fn rotate_vector(&self, vector:&[f64;3]) -> [f64;3]{
+       return ( (*self * Quaternion::from(vector)) *self.get_inverse() ).to_vector()
+    }
     
 }
 
@@ -122,112 +129,126 @@ impl Transformable for Object {
 
 impl Object {
 
-    // pub fn plane() -> Self {
-
-    //     let mut surfaces = Vec::new();
-    //     // Creating the grid of triangles
-    //     let SIDE_LENGTH = 200.0;
-    //     for mut x in -250..250{
-    //         for mut z in -250..250{
-    //             let x = x as f64  * SIDE_LENGTH ;
-    //             let z = z as f64  * SIDE_LENGTH ;
-    //             surfaces.push([[x,0.0,z],[x + SIDE_LENGTH ,0.0,z] ,[x,0.0,z+SIDE_LENGTH]]);
-    //             surfaces.push([[x+SIDE_LENGTH,0.0,z+SIDE_LENGTH],[x + SIDE_LENGTH ,0.0,z] ,[x,0.0,z+SIDE_LENGTH]]);
-
-    //         }
-    //     }
-    //     return Object {
-    //         scale: 1.0,
-    //         transform: Transform {
-    //             position: [0.0,0.0,0.0],
-    //             quaternion: Quaternion::new(0.0,&[1.0,1.0,1.0]),
-    //         },
-    //         surfaces: surfaces,
-    //     }
-    // }
-
-
-
     pub fn new(scale: f64, position: &[f64; 3], quaternion: Quaternion, path:String) -> Self {
         if scale <= 0.0 {
             panic!("Attempted to instantiate with size <= 0.");
         }
-        // Loading the surfaces from the object data   
-        let (models,_materials) = load_obj(path, &LoadOptions {triangulate: true, ..Default::default()}).unwrap();
-        let mut initial_surfaces: Vec<[[f64;3];3]> = Vec::new();
-        for k in 0..models.len() {
-            let mesh = &models[k].mesh;
-            let mut index = 0;
-            while index < mesh.indices.len(){
-
-                let vertex1 = [
-                mesh.positions[3 * mesh.indices[index] as usize ] as f64,
-                mesh.positions[3 * mesh.indices[index] as usize+ 1] as f64,
-                mesh.positions[3 * mesh.indices[index] as usize+ 2] as f64
-                ];
-                let vertex2 = [
-                mesh.positions[3 * mesh.indices[index + 1] as usize ] as f64,
-                mesh.positions[3 * mesh.indices[index + 1] as usize  + 1] as f64,
-                mesh.positions[3 * mesh.indices[index + 1] as usize  + 2] as f64
-                ];
-                let vertex3 = [
-                mesh.positions[3 * mesh.indices[index + 2] as usize ] as f64,
-                mesh.positions[3 * mesh.indices[index + 2] as usize  + 1] as f64,
-                mesh.positions[3 * mesh.indices[index + 2] as usize  + 2] as f64
-                ];
-                initial_surfaces.push([vertex1,vertex2,vertex3]);
-
-                index = index + 3;
-            }
-    }
+        let (triangles,vertices) = load_obj_file(&path).unwrap();
+        
         return Object {
             scale: scale,
             transform: Transform {
                 position: *position,
                 quaternion: quaternion,
             },
-            surfaces: initial_surfaces,
+            // Triangles are a triplet of indices which are used to access vertices 
+            triangles: triangles,
+            // Vertices have positions, normals, and texture coordinates
+            vertices: vertices
         }
     }
 
-    pub fn get_surfaces(&self) -> Vec<[[f64;3];3]> {
-        
+    pub fn get_triangles(&self) -> &Vec<[usize;3]>{
+        return &self.triangles
+    }
+    pub fn get_transformed_vertices(&self) -> Vec<Vertex> {
+        // x,y,z translation to be applied to each vertex
         let (x, y, z) = (
             self.transform.position[0],
             self.transform.position[1],
             self.transform.position[2],
         );
-
+        // scaling factor to be applied to each vertex
         let scale = self.scale;
+        // rotation to be applied to each vertex represented as a quaternion
         let quat = self.transform.quaternion;
-        let surfaces = self
-            .surfaces
-            .iter()
-            .map(|surface| {
-                let mut rotated_surface = [
-                    // v1 -> v1'
-                    ( (quat * Quaternion::from(&surface[0])) *quat.get_inverse() ).to_vector(),
-                    // v2 -> v2'
-                    ( (quat * Quaternion::from(&surface[1])) *quat.get_inverse() ).to_vector(),
-                    // v3 -> v3'
-                    ( (quat * Quaternion::from(&surface[2])) *quat.get_inverse() ).to_vector()
-                ];
-                // Translating
-                for vertex in rotated_surface.iter_mut() {
-                    vertex[0] += x;
-                    vertex[1] += y;
-                    vertex[2] += z;
-                }
-                // Scaling
-                for vertex in rotated_surface.iter_mut() {
-                    vertex[0] *= scale;
-                    vertex[1] *= scale;
-                    vertex[2] *= scale;
-                }
-                return rotated_surface;
-            })
-            .collect();
-        return surfaces;
+    
+        // Create a vector to store the transformed vertices
+        let mut transformed_vertices = Vec::with_capacity(self.vertices.len());
+    
+        // Loop through each vertex, apply the transformation and store it in the vector
+        // The new vertex is built piece-by-piece using the transformations stored in the object
+        for vertex in &self.vertices {
+            // Translate the vertex
+            let translated_vertex = Vertex {
+                pos: [
+                    vertex.pos[0] + x,
+                    vertex.pos[1] + y,
+                    vertex.pos[2] + z,
+                ],
+                ..*vertex
+            };
+    
+            // Scale the vertex
+            let scaled_vertex = Vertex {
+                pos: [
+                    translated_vertex.pos[0] * scale,
+                    translated_vertex.pos[1] * scale,
+                    translated_vertex.pos[2] * scale,
+                ],
+                ..translated_vertex
+            };
+    
+            // Rotate the vertex
+            let rotated_vertex = Vertex {
+                pos: quat.rotate_vector(&scaled_vertex.pos),
+                normal: quat.rotate_vector(&vertex.normal),
+                ..scaled_vertex
+            };
+    
+            // Add the transformed vertex to the vector
+            transformed_vertices.push(rotated_vertex);
+        }
+        // Return the new transformed vertices
+        return transformed_vertices
     }
     
+
+}
+
+fn load_obj_file(path: &str) -> Result<(Vec<[usize; 3]>, Vec<Vertex>), String> {
+    let mut triangles = Vec::new();
+    let mut vertices = Vec::new();
+
+    let options = LoadOptions::default();
+    let (models, _) = load_obj(path, &options).unwrap();
+
+    for model in models.iter() {
+        let mesh = &model.mesh;
+
+        // Iterate over the face indices and add triangles to the vector
+        for i in (0..mesh.indices.len()).step_by(3) {
+            let i1 = mesh.indices[i] as usize;
+            let i2 = mesh.indices[i + 1] as usize;
+            let i3 = mesh.indices[i + 2] as usize;
+            triangles.push([i1, i2, i3]);
+        }
+
+        // Iterate over the vertex positions and create a Vertex struct for each vertex
+        for i in 0..mesh.positions.len() / 3 {
+            // Vertex positions
+            let x = mesh.positions[i * 3]     as f64;
+            let y = mesh.positions[i * 3 + 1] as f64;
+            let z = mesh.positions[i * 3 + 2] as f64;
+            // Vertex normals
+            //let nx = mesh.normals[i * 3]      as f64;
+            //let ny = mesh.normals[i * 3 + 1]  as f64;
+            //let nz = mesh.normals[i * 3 + 2]  as f64;
+            // Vertex U,V texture coordinates
+            //let u = mesh.texcoords[i * 2]     as f64;
+            //let v = mesh.texcoords[i * 2 + 1] as f64;
+
+            let vertex = Vertex {
+                pos: [x, y, z],
+                // normal: [nx, ny, nz],
+                // tex_coords: [u, v],
+                normal: [0.0, 0.0, 0.0],
+                tex_coords: [0.0, 0.0],
+            };
+
+            vertices.push(vertex);
+        }
+    }
+
+    Ok((triangles, vertices))
 }

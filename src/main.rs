@@ -6,8 +6,8 @@ use objects::*;
 use camera::*;
 use std::f64::consts::PI;
 
-const WIDTH: usize = 1920;
-const HEIGHT: usize = 1080;
+const WIDTH: usize = 1080;
+const HEIGHT: usize = 720;
 const SECONDS_PER_FRAME: f32 = 1.0/60.0; // MAX 60 FPS
 
 fn main() {
@@ -36,8 +36,8 @@ fn main() {
     let mut world = Vec::new(); 
    
     world.push(Object::new(
-        1.0,
-        &[0.0,0.0, 0.0],
+        9.0,
+        &[0.0,-1.0, 0.0],
         Quaternion::new(PI, &[1.0, 0.0, 0.0]),
         "./eren.obj".to_string()
         
@@ -50,11 +50,14 @@ fn main() {
     window.limit_update_rate(Some(std::time::Duration::from_secs_f32(SECONDS_PER_FRAME)));
 
     // Main window loop
+    let mut t : f64 = 0.0;
     while window.is_open() && !window.is_key_down(Key::Escape) {
         // Rotate every cube +PI/200 radians about the vector <0,1,1>
         for cube in &mut world {
-            //cube.rotate(PI / 100.0, [0.0, 1.0, 0.0]);
+            cube.rotate(PI / 100.0, [0.0, 1.0, 0.0]);
+            cube.translate(&[0.0,t.sin()/10.0,0.0]);
         }
+        t = t + 0.3;
         // Take a snapshot with the camera
         camera1.update_buffer_with_surfaces(&world);
      
@@ -63,7 +66,7 @@ fn main() {
         window_buffer.clear(); 
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
-                let pixel = camera1.buffer()[x][y] as u32;
+                let pixel = camera1.export_frame()[x][y];
                 window_buffer.push(pixel)
             }
         }

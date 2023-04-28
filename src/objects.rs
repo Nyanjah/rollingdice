@@ -190,11 +190,13 @@ impl Object {
             };
     
             // Rotate the vertex
-            let rotated_vertex = Vertex {
+            let mut rotated_vertex = Vertex {
                 pos: quat.rotate_vector(&scaled_vertex.pos),
                 normal: quat.rotate_vector(&vertex.normal),
                 ..scaled_vertex
             };
+
+            rotated_vertex.original_pos = rotated_vertex.pos;
     
             // Add the transformed vertex to the vector
             transformed_vertices.push(rotated_vertex);
@@ -230,15 +232,18 @@ fn load_obj_file(path: &str) -> Result<(Vec<[usize; 3]>, Vec<Vertex>), String> {
             let x = mesh.positions[i * 3]     as f64;
             let y = mesh.positions[i * 3 + 1] as f64;
             let z = mesh.positions[i * 3 + 2] as f64;
+
             // Vertex normals
             //let nx = mesh.normals[i * 3]      as f64;
             //let ny = mesh.normals[i * 3 + 1]  as f64;
             //let nz = mesh.normals[i * 3 + 2]  as f64;
+
             // Vertex U,V texture coordinates
             //let u = mesh.texcoords[i * 2]     as f64;
             //let v = mesh.texcoords[i * 2 + 1] as f64;
 
             let vertex = Vertex {
+                original_pos: [x, y, z],
                 pos: [x, y, z],
                 // normal: [nx, ny, nz],
                 // tex_coords: [u, v],

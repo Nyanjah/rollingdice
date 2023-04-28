@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+use std::default;
+
 use tobj::*;
 
 use crate::vertex::Vertex;
@@ -212,10 +214,11 @@ fn load_obj_file(path: &str) -> Result<(Vec<[usize; 3]>, Vec<Vertex>), String> {
     let mut triangles = Vec::new();
     let mut vertices = Vec::new();
 
-    let options = LoadOptions::default();
+    let options = LoadOptions{triangulate: true, single_index:true, ..Default::default()};
     let (models, _) = load_obj(path, &options).unwrap();
 
-    for model in models.iter() {
+    let mut object_offset: usize = 0;
+    for model in [&models[0]] {
         let mesh = &model.mesh;
 
         // Iterate over the face indices and add triangles to the vector
@@ -223,7 +226,8 @@ fn load_obj_file(path: &str) -> Result<(Vec<[usize; 3]>, Vec<Vertex>), String> {
             let i1 = mesh.indices[i] as usize;
             let i2 = mesh.indices[i + 1] as usize;
             let i3 = mesh.indices[i + 2] as usize;
-            triangles.push([i1, i2, i3]);
+
+            triangles.push([i1 + object_offset, i2 + object_offset, i3 + object_offset]);
         }
 
         // Iterate over the vertex positions and create a Vertex struct for each vertex
@@ -234,25 +238,27 @@ fn load_obj_file(path: &str) -> Result<(Vec<[usize; 3]>, Vec<Vertex>), String> {
             let z = mesh.positions[i * 3 + 2] as f64;
 
             // Vertex normals
-            //let nx = mesh.normals[i * 3]      as f64;
-            //let ny = mesh.normals[i * 3 + 1]  as f64;
-            //let nz = mesh.normals[i * 3 + 2]  as f64;
+            let nx = mesh.normals[i * 3]      as f64;
+            let ny = mesh.normals[i * 3 + 1]  as f64;
+            let nz = mesh.normals[i * 3 + 2]  as f64;
 
             // Vertex U,V texture coordinates
-            //let u = mesh.texcoords[i * 2]     as f64;
-            //let v = mesh.texcoords[i * 2 + 1] as f64;
+            let u = mesh.texcoords[i * 2]     as f64;
+            let v = mesh.texcoords[i * 2 + 1] as f64;
 
             let vertex = Vertex {
                 original_pos: [x, y, z],
                 pos: [x, y, z],
-                // normal: [nx, ny, nz],
-                // tex_coords: [u, v],
-                normal: [0.0, 0.0, 0.0],
-                tex_coords: [0.0, 0.0],
+                normal: [nx, ny, nz],
+                tex_coords: [u, v],
+                
+                // normal: [0.0, 0.0, 0.0],
+                // tex_coords: [0.0, 0.0],
             };
 
             vertices.push(vertex);
         }
+        object_offset = object_offset + vertices.len();
     }
 
     Ok((triangles, vertices))

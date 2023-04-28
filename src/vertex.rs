@@ -21,7 +21,6 @@ impl Vertex {
         }
     }
 
-
     pub fn interpolate_attributes(self, vertex: &Vertex, val: f64) -> Vertex {
         return Vertex {
             original_pos: [lerp(self.original_pos[0],vertex.original_pos[0],val), lerp(self.original_pos[1],vertex.original_pos[1],val),lerp(self.original_pos[2],vertex.original_pos[2],val)],
@@ -33,8 +32,26 @@ impl Vertex {
     
     // Takes in the vertex and outputs its RGBA color encoded as a u32.
     pub fn shader(&self) -> u32 {
-        let (red,green,blue) = (10 * self.original_pos[0].abs() as usize % 255 ,10 * self.original_pos[1].abs() as usize % 255,10* self.original_pos[2].abs() as usize % 255);
-        return (red << 16 | green << 8 | blue  ) as u32;
+
+        let light: [f64;3] = [0.0,-100.0,-50.0];
+        // difference  = light_source - pos
+        let mut difference =  [light[0] - self.original_pos[0] ,light[1] - self.original_pos[1], light[2] - self.original_pos[2]];
+        // normalizing the difference vector
+        let magnitude = (difference[0].powi(2) + difference[1].powi(2) + difference[2].powi(2)).sqrt();
+        difference = [difference[0] / magnitude, difference[1]/magnitude,difference[2]/magnitude];
+        
+        let dot = difference[0] * self.normal[0] + difference[1] * self.normal[1] + difference[2] * self.normal[2];
+        if dot > 0.0 {
+            let value =  (((1000000.0 / (magnitude).powi(2))) % 255.0 * dot) as usize;
+            return (value << 16 | value << 8 | value  ) as u32;
+        }
+        else {
+            let value = 0 as usize;
+            return (value << 16 | value  ) as u32;
+        }
+        
+        
+
 
     }
 

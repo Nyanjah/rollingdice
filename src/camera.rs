@@ -33,9 +33,9 @@ impl Camera {
                         Vertex::new([0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0]),
                         false
                     );
-                    *height + 1
+                    *height+1
                 ];
-                *width + 1
+                *width+1
             ],
             width: *width,
             height: *height,
@@ -120,10 +120,10 @@ impl Camera {
                 }
                 // X-values
                 vertex.pos[0] =
-                    ((vertex.pos[0] * self.width as f64 / 2.0) + self.width as f64 / 2.0).round();
+                    ((vertex.pos[0] * self.width as f64 / 2.0) + (self.width as f64 / 2.0)).round();
                 // Y-values
                 vertex.pos[1] =
-                    ((vertex.pos[1] * self.height as f64 / 2.0) + self.height as f64 / 2.0).round();
+                    ((vertex.pos[1] * self.height as f64 / 2.0) + (self.height as f64 / 2.0)).round();
             }
 
             // This should ONLY BE CALLED if ALL of the vertices the current triangle's indices correspond to are still valid
@@ -173,13 +173,9 @@ impl Camera {
 
         // Getting bounds for the subsection of the screen the triangle is drawn to
         let x_min = ((vertex_1.pos[0]).min(vertex_2.pos[0])).min(vertex_3.pos[0]) as usize;
-        let x_max = ((vertex_1.pos[0]).max(vertex_2.pos[0]))
-            .max(vertex_3.pos[0])
-            .min((self.width - 1) as f64) as usize;
+        let x_max = ((vertex_1.pos[0]).max(vertex_2.pos[0])).max(vertex_3.pos[0]).min((self.width - 1) as f64) as usize;
         let y_min = ((vertex_1.pos[1]).min(vertex_2.pos[1])).min(vertex_3.pos[1]) as usize;
-        let y_max = ((vertex_1.pos[1]).max(vertex_2.pos[1]))
-            .max(vertex_3.pos[1])
-            .min((self.height - 1) as f64) as usize;
+        let y_max = ((vertex_1.pos[1]).max(vertex_2.pos[1])).max(vertex_3.pos[1]).min((self.height - 1) as f64) as usize;
 
         // Plotting the three lines into the triangle buffer that make up the triangle's perimeter
 
@@ -187,30 +183,30 @@ impl Camera {
         self.plot_line(&vertex_2, &vertex_3); // Line P2->P3
         self.plot_line(&vertex_3, &vertex_1); // Line P3->P1
 
-        // Iterating over the sub-section the screen is drawn to and applying the scanline algorithm
-        // for y in y_min..=y_max {
-        //     'draw_loop: for x in x_min..x_max {
-        //         // If there is a pixel drawn at [x][y] & not at [x+1][y]
-        //         if self.triangle_buffer[x][y].1 && !self.triangle_buffer[x + 1][y].1 {
-        //             let first_pixel = (x, y);
-        //             for x_i in ((first_pixel.0 + 1)..(x_max)).rev() {
-        //                 // If there is a not a pixel drawn at [x_i][y] and one drawn at [x_i+1][y]
-        //                 if !self.triangle_buffer[x_i][y].1 && self.triangle_buffer[x_i + 1][y].1 {
-        //                     let second_pixel = (x_i + 1, y);
-        //                     // Plot the line between the two pixels
-        //                     let first_point =  self.triangle_buffer[first_pixel.0][first_pixel.1].0;
-        //                     let second_point = self.triangle_buffer[second_pixel.0][second_pixel.1].0;
+        // // Iterating over the sub-section the screen is drawn to and applying the scanline algorithm
+        for y in y_min..=y_max {
+            'draw_loop: for x in x_min..=x_max {
+                // If there is a pixel drawn at [x][y] & not at [x+1][y]
+                if self.triangle_buffer[x][y].1 && !self.triangle_buffer[x + 1][y].1 {
+                    let first_pixel = (x, y);
+                    for x_i in ((first_pixel.0 + 1)..(x_max)).rev() {
+                        // If there is a not a pixel drawn at [x_i][y] and one drawn at [x_i+1][y]
+                        if !self.triangle_buffer[x_i][y].1 && self.triangle_buffer[x_i + 1][y].1 {
+                            let second_pixel = (x_i + 1, y);
+                            // Plot the line between the two pixels
+                            let first_point =  self.triangle_buffer[first_pixel.0][first_pixel.1].0;
+                            let second_point = self.triangle_buffer[second_pixel.0][second_pixel.1].0;
 
-        //                     self.plot_line(&first_point, &second_point);
-        //                     // Exit the loop for the current y-value
-        //                     break 'draw_loop;
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
+                            self.plot_line(&first_point, &second_point);
+                            // Exit the loop for the current y-value
+                            break 'draw_loop;
+                        }
+                    }
+                }
+            }
+        }
 
-        // Inserting the triangle into the frame buffer
+        // Inserting the finished triangle into the frame buffer using the triangle in the triangle buffer
         for x in x_min..=x_max {
             for y in y_min..=y_max {
                 // If there is a pixel in the triangle buffer at location (x,y)
@@ -230,6 +226,8 @@ impl Camera {
         }
     }
 
+
+// TODO: Switch to barycentric coodrinates for smoother 3-points interpolation.
     fn plot_line(&mut self, vertex_0: &Vertex, vertex_1: &Vertex) {
         // Extracting the vertex coordinates
         let (x_0, y_0) = (vertex_0.pos[0] as i32, vertex_0.pos[1] as i32);
@@ -251,7 +249,6 @@ impl Camera {
         };
     }
 
-
     fn plot_line_low(&mut self, vertex_0: &Vertex, vertex_1: &Vertex) {
         let (x_0, y_0) = (vertex_0.pos[0] as i32, vertex_0.pos[1] as i32);
         let (x_1, y_1) = (vertex_1.pos[0] as i32, vertex_1.pos[1] as i32);
@@ -266,10 +263,17 @@ impl Camera {
         let mut d = 2 * dy - dx;
         let mut y = y_0 as i32;
         for x in x_0..=x_1 {
+           
             // Place the interpolated vertex directly into the triangle buffer
-            let interpolation_value = ((x - x_0) as f64).abs() / ((x_1 - x_0) as f64).abs();
+            let interpolation_value = 
+            (((x - x_0) as f64).powi(2) + ((x - x_0) as f64).powi(2)) / (((x_1 - x_0) as f64).powi(2) + ((y_1 - y_0) as f64).powi(2));
+            
             self.triangle_buffer[x as usize][y as usize].0 =
                 vertex_0.interpolate_attributes(vertex_1, interpolation_value);
+
+            self.triangle_buffer[x as usize][y as usize].0.pos[0] = x as f64;
+            self.triangle_buffer[x as usize][y as usize].0.pos[1] = y as f64;
+
             // Setting the pixel-present flag to true
             self.triangle_buffer[x as usize][y as usize].1 = true;
 
@@ -297,10 +301,18 @@ impl Camera {
         let mut d = (2 * dx) - dy;
         let mut x: i32 = x_0;
         for y in y_0..=y_1 {
+          
             // Place the interpolated vertex directly into the triangle buffer
-            let interpolation_value = ((y - y_0) as f64).abs() / ((y_1 - y_0) as f64).abs();
+            let interpolation_value = 
+            (((x - x_0) as f64).powi(2) + ((x - x_0) as f64).powi(2)) / (((x_1 - x_0) as f64).powi(2) + ((y_1 - y_0) as f64).powi(2));
+
+
+            
             self.triangle_buffer[x as usize][y as usize].0 =
                 vertex_0.interpolate_attributes(vertex_1, interpolation_value);
+            self.triangle_buffer[x as usize][y as usize].0.pos[0] = x as f64;
+            self.triangle_buffer[x as usize][y as usize].0.pos[1] = y as f64;
+
 
             // Setting the pixel-present flag to true
             self.triangle_buffer[x as usize][y as usize].1 = true;

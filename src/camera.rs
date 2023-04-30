@@ -33,9 +33,9 @@ impl Camera {
                         Vertex::new([0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0]),
                         false
                     );
-                    *height+1
+                    *height + 1
                 ];
-                *width+1
+                *width + 1
             ],
             width: *width,
             height: *height,
@@ -122,10 +122,11 @@ impl Camera {
                 vertex.pos[0] =
                     ((vertex.pos[0] * self.width as f64 / 2.0) + (self.width as f64 / 2.0)).round();
                 // Y-values
-                vertex.pos[1] =
-                    ((vertex.pos[1] * self.height as f64 / 2.0) + (self.height as f64 / 2.0)).round();
+                vertex.pos[1] = ((vertex.pos[1] * self.height as f64 / 2.0)
+                    + (self.height as f64 / 2.0))
+                    .round();
             }
-
+           
             // This should ONLY BE CALLED if ALL of the vertices the current triangle's indices correspond to are still valid
             for triangle in triangles {
                 // We only draw the triangle if it doesn't contain any vertices which are marked as discarded with the special value
@@ -134,6 +135,8 @@ impl Camera {
                     .any(|i| vertices[*i].pos[0] == 1234567890.123456789012345678901234567890)
                 {
                     self.draw_triangle(
+                        
+                        &object,
                         vertices[triangle[0]],
                         vertices[triangle[1]],
                         vertices[triangle[2]],
@@ -145,7 +148,7 @@ impl Camera {
         for vector in &mut self.z_buffer {
             vector.fill(f64::MAX);
         }
-        
+
         // Clear out the triangle buffer
         // self.triangle_buffer = vec![
         //     vec![
@@ -157,7 +160,6 @@ impl Camera {
         //     ];
         //     self.width + 1
         // ]
-        
     }
 
     pub fn export_frame(&self) -> &Vec<Vec<u32>> {
@@ -168,14 +170,18 @@ impl Camera {
         self.frame_buffer = vec![vec![0; self.height]; self.width];
     }
 
-    fn draw_triangle(&mut self, vertex_1: Vertex, vertex_2: Vertex, vertex_3: Vertex) {
+    fn draw_triangle(&mut self,object: &Object, vertex_1: Vertex, vertex_2: Vertex, vertex_3: Vertex) {
         // Extracting the three vertices which make up the triangle
 
         // Getting bounds for the subsection of the screen the triangle is drawn to
         let x_min = ((vertex_1.pos[0]).min(vertex_2.pos[0])).min(vertex_3.pos[0]) as usize;
-        let x_max = ((vertex_1.pos[0]).max(vertex_2.pos[0])).max(vertex_3.pos[0]).min((self.width - 1) as f64) as usize;
+        let x_max = ((vertex_1.pos[0]).max(vertex_2.pos[0]))
+            .max(vertex_3.pos[0])
+            .min((self.width - 1) as f64) as usize;
         let y_min = ((vertex_1.pos[1]).min(vertex_2.pos[1])).min(vertex_3.pos[1]) as usize;
-        let y_max = ((vertex_1.pos[1]).max(vertex_2.pos[1])).max(vertex_3.pos[1]).min((self.height - 1) as f64) as usize;
+        let y_max = ((vertex_1.pos[1]).max(vertex_2.pos[1]))
+            .max(vertex_3.pos[1])
+            .min((self.height - 1) as f64) as usize;
 
         // Plotting the three lines into the triangle buffer that make up the triangle's perimeter
 
@@ -194,8 +200,9 @@ impl Camera {
                         if !self.triangle_buffer[x_i][y].1 && self.triangle_buffer[x_i + 1][y].1 {
                             let second_pixel = (x_i + 1, y);
                             // Plot the line between the two pixels
-                            let first_point =  self.triangle_buffer[first_pixel.0][first_pixel.1].0;
-                            let second_point = self.triangle_buffer[second_pixel.0][second_pixel.1].0;
+                            let first_point = self.triangle_buffer[first_pixel.0][first_pixel.1].0;
+                            let second_point =
+                                self.triangle_buffer[second_pixel.0][second_pixel.1].0;
 
                             self.plot_line(&first_point, &second_point);
                             // Exit the loop for the current y-value
@@ -219,15 +226,14 @@ impl Camera {
                         // Overwrite the value stored in the z-buffer with the pixel's distance
                         self.z_buffer[x][y] = vertex.pos[2].abs();
                         // Call the vertex shader to get the u32 RGB value to be placed in the final frame
-                        self.frame_buffer[x][y] = vertex.shader();
+                        self.frame_buffer[x][y] = vertex.shader(&object.texture.as_ref().unwrap());
                     }
                 }
             }
         }
     }
 
-
-// TODO: Switch to barycentric coodrinates for smoother 3-points interpolation.
+    // TODO: Switch to barycentric coodrinates for smoother 3-points interpolation.
     fn plot_line(&mut self, vertex_0: &Vertex, vertex_1: &Vertex) {
         // Extracting the vertex coordinates
         let (x_0, y_0) = (vertex_0.pos[0] as i32, vertex_0.pos[1] as i32);
@@ -263,11 +269,10 @@ impl Camera {
         let mut d = 2 * dy - dx;
         let mut y = y_0 as i32;
         for x in x_0..=x_1 {
-           
             // Place the interpolated vertex directly into the triangle buffer
-            let interpolation_value = 
-            (((x - x_0) as f64).powi(2) + ((x - x_0) as f64).powi(2)) / (((x_1 - x_0) as f64).powi(2) + ((y_1 - y_0) as f64).powi(2));
-            
+            let interpolation_value = (((x - x_0) as f64).powi(2) + ((x - x_0) as f64).powi(2))
+                / (((x_1 - x_0) as f64).powi(2) + ((y_1 - y_0) as f64).powi(2));
+
             self.triangle_buffer[x as usize][y as usize].0 =
                 vertex_0.interpolate_attributes(vertex_1, interpolation_value);
 
@@ -286,7 +291,6 @@ impl Camera {
         }
     }
 
-  
     fn plot_line_high(&mut self, vertex_0: &Vertex, vertex_1: &Vertex) {
         let (x_0, y_0) = (vertex_0.pos[0] as i32, vertex_0.pos[1] as i32);
         let (x_1, y_1) = (vertex_1.pos[0] as i32, vertex_1.pos[1] as i32);
@@ -301,18 +305,14 @@ impl Camera {
         let mut d = (2 * dx) - dy;
         let mut x: i32 = x_0;
         for y in y_0..=y_1 {
-          
             // Place the interpolated vertex directly into the triangle buffer
-            let interpolation_value = 
-            (((x - x_0) as f64).powi(2) + ((x - x_0) as f64).powi(2)) / (((x_1 - x_0) as f64).powi(2) + ((y_1 - y_0) as f64).powi(2));
+            let interpolation_value = (((x - x_0) as f64).powi(2) + ((x - x_0) as f64).powi(2))
+                / (((x_1 - x_0) as f64).powi(2) + ((y_1 - y_0) as f64).powi(2));
 
-
-            
             self.triangle_buffer[x as usize][y as usize].0 =
                 vertex_0.interpolate_attributes(vertex_1, interpolation_value);
             self.triangle_buffer[x as usize][y as usize].0.pos[0] = x as f64;
             self.triangle_buffer[x as usize][y as usize].0.pos[1] = y as f64;
-
 
             // Setting the pixel-present flag to true
             self.triangle_buffer[x as usize][y as usize].1 = true;

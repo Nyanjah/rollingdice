@@ -2,6 +2,7 @@
 use std::default;
 
 use tobj::*;
+use image::*;
 
 use crate::vertex::Vertex;
 
@@ -17,7 +18,8 @@ pub struct Object {
     scale: f64,
     transform: Transform,
     triangles: Vec<[usize;3]>,
-    vertices: Vec<Vertex>
+    vertices: Vec<Vertex>,
+    pub texture: Option<DynamicImage>
 }
 
 pub struct Transform {
@@ -146,7 +148,9 @@ impl Object {
             // Triangles are a triplet of indices which are used to access vertices 
             triangles: triangles,
             // Vertices have positions, normals, and texture coordinates
-            vertices: vertices
+            vertices: vertices,
+            texture: None
+            
         }
     }
 
@@ -207,8 +211,14 @@ impl Object {
         return transformed_vertices
     }
     
+    pub fn load_texture(&mut self, path: &str) -> (){
+            self.texture = open(path).ok();
+    }
 
+    
 }
+
+
 
 fn load_obj_file(path: &str) -> Result<(Vec<[usize; 3]>, Vec<Vertex>), String> {
     let mut triangles = Vec::new();
@@ -217,8 +227,9 @@ fn load_obj_file(path: &str) -> Result<(Vec<[usize; 3]>, Vec<Vertex>), String> {
     let options = LoadOptions{triangulate: true, single_index:true, ..Default::default()};
     let (models, _) = load_obj(path, &options).unwrap();
 
-    let mut object_offset: usize = 0;
-    for model in [&models[0]] {
+
+    let mut offset:usize = 0;
+    for model in &models {
         let mesh = &model.mesh;
 
         // Iterate over the face indices and add triangles to the vector
@@ -227,24 +238,28 @@ fn load_obj_file(path: &str) -> Result<(Vec<[usize; 3]>, Vec<Vertex>), String> {
             let i2 = mesh.indices[i + 1] as usize;
             let i3 = mesh.indices[i + 2] as usize;
 
-            triangles.push([i1 + object_offset, i2 + object_offset, i3 + object_offset]);
+            triangles.push([i1 + offset, i2 + offset, i3 + offset]);
         }
 
         // Iterate over the vertex positions and create a Vertex struct for each vertex
-        for i in 0..mesh.positions.len() / 3 {
+        for i in 0..(mesh.positions.len() / 3) {
             // Vertex positions
             let x = mesh.positions[i * 3]     as f64;
             let y = mesh.positions[i * 3 + 1] as f64;
             let z = mesh.positions[i * 3 + 2] as f64;
 
             // Vertex normals
-            let nx = mesh.normals[i * 3]      as f64;
-            let ny = mesh.normals[i * 3 + 1]  as f64;
-            let nz = mesh.normals[i * 3 + 2]  as f64;
-
+            let nx = mesh.normals[(i * 3) % mesh.normals.len()]      as f64;
+            let ny = mesh.normals[(i * 3 + 1) % mesh.normals.len()]  as f64;
+            let nz = mesh.normals[(i * 3 + 2) % mesh.normals.len()]  as f64;
+            
             // Vertex U,V texture coordinates
-            let u = mesh.texcoords[i * 2]     as f64;
-            let v = mesh.texcoords[i * 2 + 1] as f64;
+            let u = mesh.texcoords[(i * 2) % mesh.texcoords.len()]     as f64;
+            let v = mesh.texcoords[(i * 2 + 1) % mesh.texcoords.len()] as f64;
+
+            // ADJUSTING FOR REPEATING TEXTURE MAPPING
+            // u  = u.abs() - (u.abs() as i32) as f64;
+            // v  = v.abs() - (v.abs() as i32) as f64;
 
             let vertex = Vertex {
                 original_pos: [x, y, z],
@@ -258,8 +273,9 @@ fn load_obj_file(path: &str) -> Result<(Vec<[usize; 3]>, Vec<Vertex>), String> {
 
             vertices.push(vertex);
         }
-        object_offset = object_offset + vertices.len();
+        
+        offset = offset + mesh.positions.len() / 3;
     }
-
+    
     Ok((triangles, vertices))
 }

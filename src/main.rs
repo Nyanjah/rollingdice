@@ -1,6 +1,7 @@
 mod objects;
 mod camera;
 mod vertex;
+mod scene;
 use minifb::*;
 use objects::*;
 use camera::*;
@@ -11,6 +12,7 @@ const HEIGHT: usize = 720;
 const SECONDS_PER_FRAME: f32 = 1.0/60.0; // MAX 60 FPS
 
 fn main() {
+    
     // Setting up the window
     let mut window = Window::new(
         "Rasterization",
@@ -48,11 +50,10 @@ fn main() {
         object.load_texture("textures./skull_texture.jpg");
         object.rotate(-1.0 * PI/2.0 ,[1.0,0.0,0.0]);
     }
-    
-
 
     // Creating an empty window buffer for minifb to update the window with
     let mut window_buffer: Vec<u32> = Vec::new();
+    
     // (Optional) Limit the window update rate to control CPU usage
     window.limit_update_rate(Some(std::time::Duration::from_secs_f32(SECONDS_PER_FRAME)));
 
@@ -60,9 +61,9 @@ fn main() {
     let mut t : f64 = 0.0;
     while window.is_open() && !window.is_key_down(Key::Escape) {
         // Rotate every cube +PI/200 radians about the vector <0,1,1>
-        for cube in &mut world {
-            cube.rotate(PI / 50.0, [0.0, 0.0, 1.0]);
-           // cube.translate(&[0.0,t.sin()/10.0,0.0]);
+        for object in &mut world {
+            object.rotate(PI / 200.0, [0.0, 0.0, 1.0]);
+            object.translate(&[0.0,0.0,t.sin()/5.0]);
         }
         t = t + 0.3;
         // Take a snapshot with the camera

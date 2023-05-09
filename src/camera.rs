@@ -61,16 +61,15 @@ impl Camera {
         self.clear_buffer();
         // Getting the (x,y) position of the top-left most point of the camera
         for object in world.iter() {
-            // Getting the surfaces of the cube
-            let triangles = object.get_triangles();
-            let mut vertices = object.get_transformed_vertices();
 
+                       
             // Getting the position of the viewing frustum
             let (x_0, y_0, z_0) = (
                 self.transform.position[0],
                 self.transform.position[1],
                 self.transform.position[2],
             );
+
             let quat = self.transform.quaternion;
             // Getting the basis vectors of the camera's coordinate system
             let mut x_basis = (quat * Quaternion::from(&[1.0, 0.0, 0.0])) * quat.get_inverse();
@@ -79,6 +78,10 @@ impl Camera {
             y_basis.normalize_as_vector();
             let mut z_basis = (quat * Quaternion::from(&[0.0, 0.0, -1.0])) * quat.get_inverse();
             z_basis.normalize_as_vector();
+            // Getting the surfaces of the cube
+            let triangles = object.get_triangles();
+            let mut vertices = object.get_transformed_vertices();
+ 
 
             // Note: The raster's normal vector is the negative of the z_basis because the camera's line of sight is along it's -z axis.
             // Getting the top-left most vertex of the raster after applying it's stored translation and rotation
@@ -98,10 +101,12 @@ impl Camera {
                 vertex.pos[0] = x_basis.x * temp_point[0]
                     + x_basis.y * temp_point[1]
                     + x_basis.z * temp_point[2];
+
                 // y = V' * y_basis
                 vertex.pos[1] = y_basis.x * temp_point[0]
                     + y_basis.y * temp_point[1]
                     + y_basis.z * temp_point[2];
+
                 // z = V' * z_basis
                 vertex.pos[2] = z_basis.x * temp_point[0]
                     + z_basis.y * temp_point[1]
@@ -148,18 +153,6 @@ impl Camera {
         for vector in &mut self.z_buffer {
             vector.fill(f64::MAX);
         }
-
-        // Clear out the triangle buffer
-        // self.triangle_buffer = vec![
-        //     vec![
-        //         (
-        //             Vertex::new([0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0]),
-        //             false
-        //         );
-        //         self.height + 1
-        //     ];
-        //     self.width + 1
-        // ]
     }
 
     pub fn export_frame(&self) -> &Vec<Vec<u32>> {
@@ -255,7 +248,7 @@ impl Camera {
         };
     }
 
-    fn plot_line_low(&mut self, vertex_0: &Vertex, vertex_1: &Vertex) {
+    fn  plot_line_low(&mut self, vertex_0: &Vertex, vertex_1: &Vertex) {
         let (x_0, y_0) = (vertex_0.pos[0] as i32, vertex_0.pos[1] as i32);
         let (x_1, y_1) = (vertex_1.pos[0] as i32, vertex_1.pos[1] as i32);
 

@@ -218,8 +218,6 @@ impl Object {
     
 }
 
-
-
 fn load_obj_file(path: &str) -> Result<(Vec<[usize; 3]>, Vec<Vertex>), String> {
     let mut triangles = Vec::new();
     let mut vertices = Vec::new();

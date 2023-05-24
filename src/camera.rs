@@ -160,7 +160,9 @@ impl Camera {
     }
 
     pub fn clear_buffer(&mut self) {
-        self.frame_buffer = vec![vec![0; self.height]; self.width];
+        for row in self.frame_buffer.iter_mut(){
+            row.fill(0);
+        }
     }
 
     fn draw_triangle(&mut self,object: &Object, vertex_1: Vertex, vertex_2: Vertex, vertex_3: Vertex) {
@@ -225,6 +227,7 @@ impl Camera {
             }
         }
     }
+
 
     // TODO: Switch to barycentric coodrinates for smoother 3-points interpolation.
     fn plot_line(&mut self, vertex_0: &Vertex, vertex_1: &Vertex) {

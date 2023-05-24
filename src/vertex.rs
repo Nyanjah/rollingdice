@@ -38,6 +38,7 @@ impl Vertex {
     pub fn shader(&self, texture: &DynamicImage) -> u32 {
         
         let light: [f64;3] = [0.0,0.0,-100.0];
+       
         
         // difference  = light_source - pos
         let mut difference =  [light[0] - self.original_pos[0] ,light[1] - self.original_pos[1], light[2] - self.original_pos[2]];

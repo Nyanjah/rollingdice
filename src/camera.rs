@@ -141,33 +141,28 @@ impl ViewportProjector for PerspectiveProjector {
                 if p2.z < clip_plane_z {
 
                     let Triangle { normal, color, .. } = tri;
-
-                    let v01 = p1 - p0;
-                    let v02 = p2 - p0;
                     
                     self.project(
                         Triangle { 
                             // TODO: Enforce winding order
                             points: [
                                 p0, 
-                                p0.lerp(p1, (clip_plane_z - p0.z) / (v01.unit().z * v01.magnitude())),
-                                p0.lerp(p2, (clip_plane_z - p0.z) / (v02.unit().z * v02.magnitude())),
+                                p0.lerp(p1, (clip_plane_z - p0.z) / (p1.z - p0.z)),
+                                p0.lerp(p2, (clip_plane_z - p0.z) / (p2.z - p0.z)),
                             ], 
                             normal, color 
                         }, 
                         geometry
                     );
                 } else {
-                    let v01 = p1 - p0;
-                    let v21 = p1 - p2;
 
-                    let p0z = p0.lerp(p1, (clip_plane_z - p0.z) / (v01.unit().z * v01.magnitude()));
-                    let p2z = p2.lerp(p1, (clip_plane_z - p2.z) / (v21.unit().z * v21.magnitude()));
+                    let p0z = p0.lerp(p1, (clip_plane_z - p0.z) / (p1.z - p0.z));
+                    let p2z = p2.lerp(p1, (clip_plane_z - p2.z) / (p1.z - p2.z));
 
                     let Triangle { normal, color, .. } = tri;
 
                     // TODO: Enforce winding order
-                    self.project(Triangle { points: [p0z, p0, p2], normal, color }, geometry);
+                    self.project(Triangle { points: [p2, p0, p0z], normal, color }, geometry);
                     self.project(Triangle { points: [p0z, p2z, p2], normal, color }, geometry);
                 }
 

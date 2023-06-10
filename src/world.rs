@@ -110,8 +110,9 @@ pub mod test_world {
             projector.project(Triangle {
                 normal: Vector3::Y_AXIS,
                 points: [
+                    Vector3::new(-FLOOR_BOUND, 0.0, FLOOR_BOUND - FLOOR_BOUND + 1000.0),
                     Vector3::new(FLOOR_BOUND, 0.0, FLOOR_BOUND - FLOOR_BOUND + 1000.0), 
-                    Vector3::new(-FLOOR_BOUND, 0.0, FLOOR_BOUND - FLOOR_BOUND + 1000.0), 
+                    
                     Vector3::new(-FLOOR_BOUND, 0.0, -FLOOR_BOUND - FLOOR_BOUND + 1000.0)
                 ],
                 color: floor_color

@@ -1,15 +1,14 @@
 use crate::{
-    transform::*, 
-    raster::{Triangle, TriangleProjection, Viewport, ViewportProjector}
+    raster::{Triangle, TriangleProjection, Viewport, ViewportProjector},
+    transform::*,
 };
 
 #[derive(Clone, Default)]
 pub struct OrthographicCamera {
-    pub transform: Transform
+    pub transform: Transform,
 }
 
 impl Viewport for OrthographicCamera {
-
     type Projector = OrthographicProjector;
 
     fn projector(&self, screen_width: u16, screen_height: u16) -> Self::Projector {
@@ -31,7 +30,7 @@ impl Transformable for OrthographicCamera {
 }
 
 #[derive(Default)]
-pub struct  OrthographicProjector {
+pub struct OrthographicProjector {
     size: Vector2,
     z_origin: Vector3,
     z_change: Vector3,
@@ -40,10 +39,10 @@ pub struct  OrthographicProjector {
 
 impl ViewportProjector for OrthographicProjector {
     fn project(&self, tri: Triangle, geometry: &mut Vec<(Triangle, TriangleProjection)>) {
-        let tri_proj = TriangleProjection { 
-            points: tri.points.map(|p| {
-                Vector3::new(0.5 + p.x / self.size.x, 0.5 - p.y / self.size.y, p.z)
-            }) 
+        let tri_proj = TriangleProjection {
+            points: tri
+                .points
+                .map(|p| Vector3::new(0.5 + p.x / self.size.x, 0.5 - p.y / self.size.y, p.z)),
         };
 
         geometry.push((tri, tri_proj));
@@ -70,7 +69,7 @@ impl ViewportProjector for OrthographicProjector {
 }
 
 pub struct PerspectiveCamera {
-    pub transform: Transform
+    pub transform: Transform,
 }
 
 impl Transformable for PerspectiveCamera {
@@ -84,15 +83,16 @@ impl Transformable for PerspectiveCamera {
 }
 
 impl Viewport for PerspectiveCamera {
-
     type Projector = PerspectiveProjector;
 
     fn projector(&self, screen_width: u16, screen_height: u16) -> Self::Projector {
-
         let vertical_tan_half_fov = 35.0f64.to_radians().tan();
 
         PerspectiveProjector {
-            tan_half_fov: Vector2::new((screen_width as f64 / screen_height as f64) * vertical_tan_half_fov, vertical_tan_half_fov),
+            tan_half_fov: Vector2::new(
+                (screen_width as f64 / screen_height as f64) * vertical_tan_half_fov,
+                vertical_tan_half_fov,
+            ),
             z_cutoff: 0.1,
             ..Default::default()
         }
@@ -110,14 +110,14 @@ pub struct PerspectiveProjector {
 
 impl PerspectiveProjector {
     fn project(&self, tri: Triangle, geometry: &mut Vec<(Triangle, TriangleProjection)>) {
-        let tri_proj = TriangleProjection { 
+        let tri_proj = TriangleProjection {
             points: tri.points.map(|point| {
                 Vector3::new(
-                    0.5 * (1.0 + point.x / (self.tan_half_fov.x * point.z.abs())), 
-                    0.5 * (1.0 - point.y / (self.tan_half_fov.y * point.z.abs())), 
-                    point.z - self.z_cutoff
+                    0.5 * (1.0 + point.x / (self.tan_half_fov.x * point.z.abs())),
+                    0.5 * (1.0 - point.y / (self.tan_half_fov.y * point.z.abs())),
+                    point.z - self.z_cutoff,
                 )
-            })
+            }),
         };
 
         geometry.push((tri, tri_proj));
@@ -126,44 +126,54 @@ impl PerspectiveProjector {
 
 impl ViewportProjector for PerspectiveProjector {
     fn project(&self, tri: Triangle, geometry: &mut Vec<(Triangle, TriangleProjection)>) {
-
         let clip_plane_z = self.z_cutoff;
 
         for i in 0..3 {
-
             let p0 = tri.points[i];
             let p1 = tri.points[(i + 1) % 3];
 
             if p0.z > clip_plane_z && p1.z < clip_plane_z {
-
                 let p2 = tri.points[(i + 2) % 3];
-                
-                if p2.z < clip_plane_z {
 
+                if p2.z < clip_plane_z {
                     let Triangle { normal, color, .. } = tri;
-                    
+
+                    // TODO: Enforce winding order
                     self.project(
-                        Triangle { 
-                            // TODO: Enforce winding order
+                        Triangle {
                             points: [
-                                p0, 
+                                p0,
                                 p0.lerp(p1, (clip_plane_z - p0.z) / (p1.z - p0.z)),
                                 p0.lerp(p2, (clip_plane_z - p0.z) / (p2.z - p0.z)),
-                            ], 
-                            normal, color 
-                        }, 
-                        geometry
+                            ],
+                            normal,
+                            color,
+                        },
+                        geometry,
                     );
                 } else {
-
                     let p0z = p0.lerp(p1, (clip_plane_z - p0.z) / (p1.z - p0.z));
                     let p2z = p2.lerp(p1, (clip_plane_z - p2.z) / (p1.z - p2.z));
 
                     let Triangle { normal, color, .. } = tri;
 
                     // TODO: Enforce winding order
-                    self.project(Triangle { points: [p2, p0, p0z], normal, color }, geometry);
-                    self.project(Triangle { points: [p0z, p2z, p2], normal, color }, geometry);
+                    self.project(
+                        Triangle {
+                            points: [p2, p0, p0z],
+                            normal,
+                            color,
+                        },
+                        geometry,
+                    );
+                    self.project(
+                        Triangle {
+                            points: [p0z, p2z, p2],
+                            normal,
+                            color,
+                        },
+                        geometry,
+                    );
                 }
 
                 return;
@@ -185,12 +195,11 @@ impl ViewportProjector for PerspectiveProjector {
     fn compute_z(&self, x: f64) -> f64 {
         let y = self.y;
         let point = Vector3::new(
-            self.z_cutoff * self.tan_half_fov.x * (2.0 * x - 1.0), 
-            self.z_cutoff * self.tan_half_fov.y * (1.0 - 2.0 * y), 
-            self.z_cutoff
+            self.z_cutoff * self.tan_half_fov.x * (2.0 * x - 1.0),
+            self.z_cutoff * self.tan_half_fov.y * (1.0 - 2.0 * y),
+            self.z_cutoff,
         );
 
         self.z_plane_origin.dot(self.z_plane_normal) / point.dot(self.z_plane_normal)
     }
 }
-

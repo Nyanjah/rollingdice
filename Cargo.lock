@@ -254,19 +254,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "d6"
-version = "0.1.0"
-dependencies = [
- "crossterm",
- "image",
- "log",
- "minifb",
- "tobj",
- "tui",
- "tui-logger",
-]
-
-[[package]]
 name = "dlib"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -980,6 +967,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "567664f262709473930a4bf9e51bf2ebf3348f2e748ccc50dea20646858f8f29"
 dependencies = [
  "bitflags",
+]
+
+[[package]]
+name = "rollingdice"
+version = "0.1.0"
+dependencies = [
+ "crossterm",
+ "image",
+ "log",
+ "minifb",
+ "tobj",
+ "tui",
+ "tui-logger",
 ]
 
 [[package]]

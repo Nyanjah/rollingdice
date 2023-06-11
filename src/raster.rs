@@ -70,7 +70,7 @@ pub trait Rasterable {
 pub struct Raster {
     z_buffer: Buffer2D<f64>,
     geometry_buffer: Vec<(Triangle, TriangleProjection)>,
-    horizonal_line_buffer: Vec<(i32, i32)>,
+    horizonal_line_buffer: Vec<(i64, i64)>,
 }
 
 impl Rasterable for Raster {
@@ -94,7 +94,7 @@ impl Rasterable for Raster {
             .clear_and_resize(screen_width as usize, screen_height as usize, f64::INFINITY);
 
         self.horizonal_line_buffer
-            .resize(screen_height as usize, (i32::MAX, i32::MAX));
+            .resize(screen_height as usize, (i64::MAX, i64::MAX));
 
         let mut projector = viewport.projector(screen_width, screen_height);
 
@@ -145,8 +145,8 @@ impl Rasterable for Raster {
                 .points
                 .map(|point| {
                     (
-                        (point.x * screen_width as f64).round() as i32,
-                        (point.y * screen_height as f64).round() as i32,
+                        (point.x * screen_width as f64).round() as i64,
+                        (point.y * screen_height as f64).round() as i64,
                     )
                 });
 
@@ -160,10 +160,10 @@ impl Rasterable for Raster {
 
                 let m = (y2 - y1) as f64 / (x2 - x1) as f64;
 
-                for y in y1.min(y2).max(0)..=y1.max(y2).min(screen_height as i32 - 1) {
-                    let x = ((y - y1) as f64 / m).round() as i32 + x1;
+                for y in y1.min(y2).max(0)..=y1.max(y2).min(screen_height as i64 - 1) {
+                    let x = ((y - y1) as f64 / m).round() as i64 + x1;
                     let row = &mut self.horizonal_line_buffer[y as usize];
-                    if row.0 == i32::MAX {
+                    if row.0 == i64::MAX {
                         *row = (x, x)
                     } else if x < row.0 {
                         row.0 = x
@@ -181,25 +181,25 @@ impl Rasterable for Raster {
 
             let y_min = screen_points
                 .iter()
-                .fold(i32::MAX, |min, &(_, y)| min.min(y))
-                .clamp(0, screen_height.saturating_sub(1) as i32) as usize;
+                .fold(i64::MAX, |min, &(_, y)| min.min(y))
+                .clamp(0, screen_height.saturating_sub(1) as i64) as usize;
             let y_max = screen_points
                 .iter()
-                .fold(i32::MIN, |max, &(_, y)| max.max(y))
-                .clamp(0, screen_height.saturating_sub(1) as i32) as usize;
+                .fold(i64::MIN, |max, &(_, y)| max.max(y))
+                .clamp(0, screen_height.saturating_sub(1) as i64) as usize;
 
             projector.prepare_z_compute(tri, tri_proj);
 
             for y in y_min..=y_max {
                 let (x_min, x_max) = {
                     let (min, max) = self.horizonal_line_buffer[y];
-                    if min < 0 && max < 0 || min >= screen_width as i32 && max >= screen_width as i32
+                    if min < 0 && max < 0 || min >= screen_width as i64 && max >= screen_width as i64
                     {
                         continue;
                     }
                     (
-                        min.clamp(0, screen_width as i32 - 1) as usize,
-                        max.clamp(0, screen_width as i32 - 1) as usize,
+                        min.clamp(0, screen_width as i64 - 1) as usize,
+                        max.clamp(0, screen_width as i64 - 1) as usize,
                     )
                 };
 
@@ -221,19 +221,19 @@ impl Rasterable for Raster {
                 }
             }
 
-            self.horizonal_line_buffer[y_min..=y_max].fill((i32::MAX, i32::MAX));
+            self.horizonal_line_buffer[y_min..=y_max].fill((i64::MAX, i64::MAX));
         }
     }
 
     // fn bressenham_line(
     //     &mut self,
-    //     mut x1: i32,
-    //     mut y1: i32,
-    //     x2: i32,
-    //     y2: i32,
-    //     dx: i32,
-    //     dy: i32,
-    //     decide: i32,
+    //     mut x1: i64,
+    //     mut y1: i64,
+    //     x2: i64,
+    //     y2: i64,
+    //     dx: i64,
+    //     dy: i64,
+    //     decide: i64,
     // ) {
     //     let mut pk = 2 * dy - dx;
 
@@ -246,7 +246,7 @@ impl Rasterable for Raster {
 
     //         if pk < 0 {
     //             let (x1, y1) = if decide == 0 { (x1, y1) } else { (y1, x1) };
-    //             if y1 >= 0 && y1 < self.screen_buffer.height as i32 {
+    //             if y1 >= 0 && y1 < self.screen_buffer.height as i64 {
     //                 self.insert_bressenham_point(x1, y1 as usize);
     //             }
     //             pk += 2 * dy;
@@ -257,7 +257,7 @@ impl Rasterable for Raster {
     //                 y1 -= 1;
     //             }
     //             let (x1, y1) = if decide == 0 { (x1, y1) } else { (y1, x1) };
-    //             if y1 >= 0 && y1 < self.screen_buffer.height as i32 {
+    //             if y1 >= 0 && y1 < self.screen_buffer.height as i64 {
     //                 self.insert_bressenham_point(x1, y1 as usize);
     //             }
     //             pk += 2 * dy - 2 * dx;
@@ -265,9 +265,9 @@ impl Rasterable for Raster {
     //     }
     // }
 
-    // fn insert_bressenham_point(&mut self, x1: i32, y1: usize) {
+    // fn insert_bressenham_point(&mut self, x1: i64, y1: usize) {
     //     let row = &mut self.horizonal_line_buffer[y1];
-    //     if row.0 == i32::MAX {
+    //     if row.0 == i64::MAX {
     //         *row = (x1, x1)
     //     } else if x1 < row.0 {
     //         row.0 = x1

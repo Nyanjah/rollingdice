@@ -9,6 +9,7 @@ pub mod test_world {
     use super::World;
 
     use crate::body::*;
+    use crate::mesh::Mesh;
     use crate::raster::*;
     use crate::transform::*;
 
@@ -23,6 +24,7 @@ pub mod test_world {
         // pub camera_transform: Transform,
         pub bodies: Vec<Body>,
         pub is_colliding: bool,
+        pub meshes: Vec<Mesh>,
     }
 
     impl TestWorld {
@@ -73,6 +75,10 @@ pub mod test_world {
                         ..Default::default()
                     },
                 ],
+
+                meshes: vec![
+                    Mesh::load("models/skull.obj").unwrap()
+                ]
             }
         }
     }
@@ -128,6 +134,12 @@ pub mod test_world {
                 body.geometry().for_each(|triangle| {
                     projector.project(triangle);
                 });
+            }
+
+            for mesh in self.meshes.iter() {
+                for tri in mesh.geometry.iter().cloned() {
+                    projector.project(tri);
+                }
             }
 
             // bodies

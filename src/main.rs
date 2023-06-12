@@ -1,5 +1,8 @@
+extern crate rand;
+
 mod body;
 mod camera;
+mod mesh;
 mod raster;
 mod transform;
 mod world;

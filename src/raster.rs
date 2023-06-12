@@ -14,7 +14,7 @@ pub struct Light {
 }
 
 // TODO: Decouple color from triangle in scene (not even sure what the best way to architect computing color)
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Triangle {
     pub points: [Vector3; 3],
     pub normal: Vector3,
@@ -388,6 +388,14 @@ impl Color {
             r: ((color >> 16) & 0xFF) as u8,
             g: ((color >> 8) & 0xFF) as u8,
             b: (color & 0xFF) as u8,
+        }
+    }
+
+    pub fn random() -> Color {
+        Color {
+            r: rand::random(),
+            g: rand::random(),
+            b: rand::random(),
         }
     }
 

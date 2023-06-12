@@ -1,9 +1,9 @@
 #[derive(Copy, Clone, Debug)]
 pub struct Quaternion {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
-    pub w: f64,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub w: f32,
 }
 
 impl Default for Quaternion {
@@ -19,8 +19,8 @@ impl Default for Quaternion {
 
 impl Quaternion {
 
-    pub fn from_axis_angle(mut axis: Vector3, angle: f64) -> Quaternion {
-        let half_angle = angle / 2.0;
+    pub fn from_axis_angle(mut axis: Vector3, angle: f32) -> Quaternion {
+        let half_angle = 0.5 * angle;
         
         axis = half_angle.sin() * axis.unit();
         
@@ -32,29 +32,29 @@ impl Quaternion {
         }
     }
 
-    pub fn to_axis_angle(mut self) -> (Vector3, f64) {
+    pub fn to_axis_angle(mut self) -> (Vector3, f32) {
         self = self.unit();
         let angle = 2.0 * self.w.acos();
-        let sin = (1.0 - self.w * self.w).sqrt();
+        let sin_recip = (1.0 - self.w * self.w).sqrt().recip();
         let axis = Vector3 {
-            x: self.x / sin,
-            y: self.y / sin,
-            z: self.z / sin,
+            x: self.x * sin_recip,
+            y: self.y * sin_recip,
+            z: self.z * sin_recip,
         };
         (axis.unit(), angle)
     }
 
-    pub fn magnitude(self) -> f64 {
+    pub fn magnitude(self) -> f32 {
         (self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w).sqrt()
     }
 
     pub fn unit(self) -> Quaternion {
-        let magnitude = self.magnitude();
+        let magnitude_recip = self.magnitude().recip();
         Quaternion {
-            x: self.x / magnitude,
-            y: self.y / magnitude,
-            z: self.z / magnitude,
-            w: self.w / magnitude,
+            x: self.x * magnitude_recip,
+            y: self.y * magnitude_recip,
+            z: self.z * magnitude_recip,
+            w: self.w * magnitude_recip,
         }
     }
 
@@ -124,8 +124,8 @@ impl std::ops::MulAssign for Quaternion {
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct Vector2 {
-    pub x: f64,
-    pub y: f64,
+    pub x: f32,
+    pub y: f32,
 }
 
 impl Vector2 {
@@ -135,23 +135,23 @@ impl Vector2 {
     pub const X_AXIS: Vector2 = Vector2 { x: 1.0, y: 0.0 };
     pub const Y_AXIS: Vector2 = Vector2 { x: 0.0, y: 1.0 };
 
-    pub const fn new(x: f64, y: f64) -> Vector2 {
+    pub const fn new(x: f32, y: f32) -> Vector2 {
         Vector2 { x, y }
     }
 
-    pub fn dot(self, rhs: Vector2) -> f64 {
+    pub fn dot(self, rhs: Vector2) -> f32 {
         self.x * rhs.x + self.y * rhs.y
     }
 
-    pub fn magnitude(self) -> f64 {
+    pub fn magnitude(self) -> f32 {
         self.dot(self).sqrt()
     }
 
     pub fn unit(self) -> Vector2 {
-        let magnitude = self.magnitude();
+        let magnitude_recip = self.magnitude().recip();
         Vector2 {
-            x: self.x / magnitude,
-            y: self.y / magnitude,
+            x: self.x * magnitude_recip,
+            y: self.y * magnitude_recip,
         }
     }
 
@@ -162,7 +162,7 @@ impl Vector2 {
         }
     }
 
-    pub fn lerp(self, rhs: Vector2, t: f64) -> Vector2 {
+    pub fn lerp(self, rhs: Vector2, t: f32) -> Vector2 {
         Vector2 {
             x: self.x * (1.0 - t) + rhs.x * t,
             y: self.y * (1.0 - t) + rhs.y * t,
@@ -170,10 +170,10 @@ impl Vector2 {
     }
 }
 
-impl std::ops::Mul<f64> for Vector2 {
+impl std::ops::Mul<f32> for Vector2 {
     type Output = Vector2;
 
-    fn mul(self, rhs: f64) -> Vector2 {
+    fn mul(self, rhs: f32) -> Vector2 {
         Vector2 {
             x: self.x * rhs,
             y: self.y * rhs,
@@ -181,7 +181,7 @@ impl std::ops::Mul<f64> for Vector2 {
     }
 }
 
-impl std::ops::Mul<Vector2> for f64 {
+impl std::ops::Mul<Vector2> for f32 {
     type Output = Vector2;
 
     fn mul(self, rhs: Vector2) -> Vector2 {
@@ -237,6 +237,18 @@ impl std::ops::Mul for Vector2 {
     }
 }
 
+impl std::ops::Div<f32> for Vector2 {
+    type Output = Vector2;
+
+    fn div(self, mut rhs: f32) -> Vector2 {
+        rhs = rhs.recip();
+        Vector2 {
+            x: self.x * rhs,
+            y: self.y * rhs,
+        }
+    }
+}
+
 impl std::ops::Neg for Vector2 {
     type Output = Vector2;
 
@@ -250,9 +262,9 @@ impl std::ops::Neg for Vector2 {
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct Vector3 {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64
+    pub x: f32,
+    pub y: f32,
+    pub z: f32
 }
 
 impl Vector3 {
@@ -263,11 +275,11 @@ impl Vector3 {
     pub const Y_AXIS: Vector3 = Vector3 { x: 0.0, y: 1.0, z: 0.0 };
     pub const Z_AXIS: Vector3 = Vector3 { x: 0.0, y: 0.0, z: 1.0 };
 
-    pub const fn new(x: f64, y: f64, z: f64) -> Vector3 {
+    pub const fn new(x: f32, y: f32, z: f32) -> Vector3 {
         Vector3 { x, y, z }
     }
 
-    pub fn dot(self, rhs: Vector3) -> f64 {
+    pub fn dot(self, rhs: Vector3) -> f32 {
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z
     }
 
@@ -279,16 +291,16 @@ impl Vector3 {
         }
     }
 
-    pub fn magnitude(self) -> f64 {
+    pub fn magnitude(self) -> f32 {
         self.dot(self).sqrt()
     }
 
     pub fn unit(self) -> Vector3 {
-        let magnitude = self.magnitude();
+        let magnitude_recip = self.magnitude().recip();
         Vector3 {
-            x: self.x / magnitude,
-            y: self.y / magnitude,
-            z: self.z / magnitude,
+            x: self.x * magnitude_recip,
+            y: self.y * magnitude_recip,
+            z: self.z * magnitude_recip,
         }
     }
 
@@ -300,7 +312,7 @@ impl Vector3 {
         }
     }
 
-    pub fn lerp(self, rhs: Vector3, t: f64) -> Vector3 {
+    pub fn lerp(self, rhs: Vector3, t: f32) -> Vector3 {
         Vector3 {
             x: self.x * (1.0 - t) + rhs.x * t,
             y: self.y * (1.0 - t) + rhs.y * t,
@@ -309,10 +321,10 @@ impl Vector3 {
     }
 }
 
-impl std::ops::Mul<f64> for Vector3 {
+impl std::ops::Mul<f32> for Vector3 {
     type Output = Vector3;
 
-    fn mul(self, rhs: f64) -> Vector3 {
+    fn mul(self, rhs: f32) -> Vector3 {
         Vector3 {
             x: self.x * rhs,
             y: self.y * rhs,
@@ -321,7 +333,7 @@ impl std::ops::Mul<f64> for Vector3 {
     }
 }
 
-impl std::ops::Mul<Vector3> for f64 {
+impl std::ops::Mul<Vector3> for f32 {
     type Output = Vector3;
 
     fn mul(self, rhs: Vector3) -> Vector3 {
@@ -377,6 +389,19 @@ impl std::ops::Mul for Vector3 {
             x: self.x * rhs.x,
             y: self.y * rhs.y,
             z: self.z * rhs.z,
+        }
+    }
+}
+
+impl std::ops::Div<f32> for Vector3 {
+    type Output = Vector3;
+
+    fn div(self, mut rhs: f32) -> Vector3 {
+        rhs = rhs.recip();
+        Vector3 {
+            x: self.x * rhs,
+            y: self.y * rhs,
+            z: self.z * rhs,
         }
     }
 }

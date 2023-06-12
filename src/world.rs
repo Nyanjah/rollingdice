@@ -1,7 +1,7 @@
 use crate::raster::Scene;
 
 pub trait World: Scene {
-    fn update(&mut self, dt: f64);
+    fn update(&mut self, dt: f32);
 }
 
 pub mod test_world {
@@ -12,14 +12,14 @@ pub mod test_world {
     use crate::raster::*;
     use crate::transform::*;
 
-    const FLOOR_BOUND: f64 = 1_000_000.0;
+    const FLOOR_BOUND: f32 = 1_000_000.0;
 
-    const ANGULAR_VELOCITY: f64 = -2.5;
+    const ANGULAR_VELOCITY: f32 = -2.5;
     const ANGULAR_ROTATION_AXIS: Vector3 = Vector3::new(1.0, 1.0, 1.0);
-    const INITIAL_ANGLE_RADIANS: f64 = 2.0;
+    const INITIAL_ANGLE_RADIANS: f32 = 2.0;
 
     pub struct TestWorld {
-        pub light: Vector3,
+        //pub light: Vector3,
         // pub camera_transform: Transform,
         pub bodies: Vec<Body>,
         pub is_colliding: bool,
@@ -29,12 +29,12 @@ pub mod test_world {
         pub fn new() -> Self {
             TestWorld {
                 is_colliding: false,
-                light: Vector3::new(0.0, -1.0, 0.0).unit(),
+                //light: Vector3::new(0.0, -1.0, 0.0).unit(),
                 // camera_transform: Transform::new(
                 //     Vector3 {
                 //         x: 0.0,
                 //         y: 10.0 + 256.0,
-                //         z: 0.0 - 256.0/1.0_f64.to_radians().tan(),
+                //         z: 0.0 - 256.0/1.0_f32.to_radians().tan(),
                 //     },
                 //     Quaternion::from_axis_angle(
                 //         Vector3 {
@@ -42,7 +42,7 @@ pub mod test_world {
                 //             y: 0.0,
                 //             z: 0.0,
                 //         },
-                //         1.0_f64.to_radians(),
+                //         1.0_f32.to_radians(),
                 //     ),
                 // ),
                 bodies: vec![
@@ -78,7 +78,7 @@ pub mod test_world {
     }
 
     impl World for TestWorld {
-        fn update(&mut self, dt: f64) {
+        fn update(&mut self, dt: f32) {
             for body in self.bodies.iter_mut() {
                 body.transform.rotation *=
                     Quaternion::from_axis_angle(ANGULAR_ROTATION_AXIS, ANGULAR_VELOCITY * dt);
@@ -89,6 +89,14 @@ pub mod test_world {
     }
 
     impl Scene for TestWorld {
+        fn light(&self) -> Light {
+            Light {
+                position: Vector3::new(0.0, 100.0, 0.0),
+                offset: 0.0,
+                intensity: 2000.0,
+            }
+        }
+
         fn update_geometry<T: ViewportProjector>(&self, projector: &mut RasterProjector<'_, T>) {
             let floor_color = if self.is_colliding {
                 Color::RED

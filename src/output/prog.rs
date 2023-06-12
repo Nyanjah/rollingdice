@@ -11,11 +11,11 @@ const WIDTH: u16 = 1080;
 const HEIGHT: u16 = 720;
 const SECONDS_PER_FRAME: f32 = 1.0 / 60.0; // MAX 60 FPS
 
-const CAMERA_ROTATION_RADIANS_PER_PIXEL: f64 = 0.01;
+const CAMERA_ROTATION_RADIANS_PER_PIXEL: f32 = 0.01;
 
-const CAMERA_LINEAR_MIN_SPEED: f64 = 50.0;
-const CAMERA_LINEAR_MAX_SPEED: f64 = 500.0;
-const CAMERA_LINEAR_SPEED_TRANSITION_TIME: f64 = 10.0;
+const CAMERA_LINEAR_MIN_SPEED: f32 = 50.0;
+const CAMERA_LINEAR_MAX_SPEED: f32 = 500.0;
+const CAMERA_LINEAR_SPEED_TRANSITION_TIME: f32 = 10.0;
 const CAMERA_LINEAR_SPEED_INPUT_DIRECTION_MAP: [(Key, Vector3); 6] = [
     (Key::W, Vector3::new(0.0, 0.0, 1.0)),
     (Key::A, Vector3::new(-1.0, 0.0, 0.0)),
@@ -26,9 +26,9 @@ const CAMERA_LINEAR_SPEED_INPUT_DIRECTION_MAP: [(Key, Vector3); 6] = [
 ];
 
 const CAMERA_LINEAR_SPEED_SLOWDOWN_INPUT: Key = Key::LeftShift;
-const CAMERA_LINEAR_SPEED_SLOWDOWN_MULTIPLIER: f64 = 0.1;
+const CAMERA_LINEAR_SPEED_SLOWDOWN_MULTIPLIER: f32 = 0.1;
 
-fn ease_in_cubic(alpha: f64) -> f64 {
+fn ease_in_cubic(alpha: f32) -> f32 {
     alpha.powi(3)
 }
 
@@ -67,7 +67,7 @@ pub fn run() {
                     y: 0.0,
                     z: 0.0,
                 },
-                20.0_f64.to_radians(),
+                20.0_f32.to_radians(),
             ),
         ),
     };
@@ -85,7 +85,7 @@ pub fn run() {
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         let now = Instant::now();
-        let dt = now.duration_since(then).as_secs_f64();
+        let dt = now.duration_since(then).as_secs_f32();
         test_world.update(dt);
         then = now;
 
@@ -94,7 +94,7 @@ pub fn run() {
         if window.get_mouse_down(MouseButton::Right) {
             let new_mouse_position = window
                 .get_mouse_pos(MouseMode::Pass)
-                .map(|(mx, my)| Vector2::new(mx as f64, my as f64));
+                .map(|(mx, my)| Vector2::new(mx as f32, my as f32));
 
             if let Some(mouse_position) = mouse_position {
                 if let Some(new_mouse_position) = new_mouse_position {
@@ -145,7 +145,7 @@ pub fn run() {
             if camera_translation_dir != Vector3::ZERO {
                 let translation_duration = now
                     .saturating_duration_since(translating_camera_start)
-                    .as_secs_f64();
+                    .as_secs_f32();
                 let speed_alpha = ease_in_cubic(
                     (translation_duration / CAMERA_LINEAR_SPEED_TRANSITION_TIME).min(1.0),
                 );

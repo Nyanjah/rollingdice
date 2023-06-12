@@ -48,7 +48,7 @@ pub fn run() {
                     y: 0.0,
                     z: 0.0,
                 },
-                20.0_f64.to_radians(),
+                20.0_f32.to_radians(),
             ),
         ), // ..Default::default()
     };
@@ -79,7 +79,7 @@ pub fn run() {
         }
 
         let now = Instant::now();
-        test_world.update(now.duration_since(then).as_secs_f64());
+        test_world.update(now.duration_since(then).as_secs_f32());
         then = now;
 
         terminal
@@ -164,6 +164,5 @@ impl<'a, R: Rasterable, S: Scene, V: Viewport> tui::widgets::Widget for RasterWi
 }
 
 fn tui_color(color: Color) -> TerminalColor {
-    let (r, g, b) = color.rgb();
-    TerminalColor::Rgb(r, g, b)
+    TerminalColor::Rgb(color.r, color.g, color.b)
 }

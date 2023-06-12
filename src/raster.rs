@@ -3,7 +3,14 @@ use crate::transform::*;
 use std::ops::RangeInclusive;
 
 pub trait Scene {
+    fn light(&self) -> Light;
     fn update_geometry<T: ViewportProjector>(&self, projector: &mut RasterProjector<'_, T>);
+}
+
+pub struct Light {
+    pub position: Vector3,
+    pub offset: f32,
+    pub intensity: f32,
 }
 
 // TODO: Decouple color from triangle in scene (not even sure what the best way to architect computing color)
@@ -28,9 +35,10 @@ pub trait Viewport: Transformable  {
 
 pub trait ViewportProjector {
     fn prepare_z_compute(&mut self, tri: &Triangle, tri_proj: &TriangleProjection);
-    fn compute_z(&self, x: f64) -> f64;
-    fn set_y(&mut self, y: f64);
+    fn compute_z(&self, x: f32) -> f32;
+    fn set_y(&mut self, y: f32);
     fn project(&self, tri: Triangle, geometry: &mut Vec<(Triangle, TriangleProjection)>);
+    fn screen_space_to_world_space(&self, point: Vector3) -> Vector3;
 }
 
 pub struct RasterProjector<'a, T: ViewportProjector> {
@@ -68,7 +76,7 @@ pub trait Rasterable {
 
 #[derive(Debug, Default)]
 pub struct Raster {
-    z_buffer: Buffer2D<f64>,
+    z_buffer: Buffer2D<f32>,
     geometry_buffer: Vec<(Triangle, TriangleProjection)>,
     horizonal_line_buffer: Vec<(i64, i64)>,
 }
@@ -91,7 +99,7 @@ impl Rasterable for Raster {
         self.geometry_buffer.clear();
 
         self.z_buffer
-            .clear_and_resize(screen_width as usize, screen_height as usize, f64::INFINITY);
+            .clear_and_resize(screen_width as usize, screen_height as usize, f32::INFINITY);
 
         self.horizonal_line_buffer
             .resize(screen_height as usize, (i64::MAX, i64::MAX));
@@ -103,6 +111,10 @@ impl Rasterable for Raster {
             geometry: &mut self.geometry_buffer,
             projector: &projector,
         });
+
+        let light = scene.light();
+        let light_position = viewport.transform().point_to_local_space(light.position);
+        let light_intensity_recip = light.intensity.recip();
 
         for (tri, tri_proj) in self.geometry_buffer.iter() {
             // Backface culling
@@ -118,35 +130,44 @@ impl Rasterable for Raster {
                 let x0 = tri_proj
                     .points
                     .iter()
-                    .fold(f64::MAX, |x0, point| x0.min(point.x));
+                    .fold(f32::MAX, |x0, point| x0.min(point.x));
                 let y0 = tri_proj
                     .points
                     .iter()
-                    .fold(f64::MAX, |y0, point| y0.min(point.y));
+                    .fold(f32::MAX, |y0, point| y0.min(point.y));
                 let x1 = tri_proj
                     .points
                     .iter()
-                    .fold(f64::MIN, |x1, point| x1.max(point.x));
+                    .fold(f32::MIN, |x1, point| x1.max(point.x));
                 let y1 = tri_proj
                     .points
                     .iter()
-                    .fold(f64::MIN, |y1, point| y1.max(point.y));
+                    .fold(f32::MIN, |y1, point| y1.max(point.y));
                 let z1 = tri_proj
                     .points
                     .iter()
-                    .fold(f64::MIN, |z1, point| z1.max(point.z));
+                    .fold(f32::MIN, |z1, point| z1.max(point.z));
 
                 if !(z1 > 0.0 && x0 < 1.0 && x1 > 0.0 && y0 < 1.0 && y1 > 0.0) {
                     continue;
                 }
             }
 
+            //let light_direction = ((tri.points[0] + tri.points[1] + tri.points[2]) / 3.0 - light_position).unit();
+            //let light_direction_factor = 0.5*(1.0 - tri.normal.dot(light_direction));
+            //let tri_normal = tri.normal;
+
+            // TODO: support UV texture
+            let tri_color_r = tri.color.r as f32;
+            let tri_color_g = tri.color.g as f32;
+            let tri_color_b = tri.color.b as f32;
+
             let screen_points = tri_proj
                 .points
                 .map(|point| {
                     (
-                        (point.x * screen_width as f64).round() as i64,
-                        (point.y * screen_height as f64).round() as i64,
+                        (point.x * screen_width as f32).round() as i64,
+                        (point.y * screen_height as f32).round() as i64,
                     )
                 });
 
@@ -158,10 +179,10 @@ impl Rasterable for Raster {
                 let &(x1, y1) = line[0];
                 let &(x2, y2) = line[1];
 
-                let m = (y2 - y1) as f64 / (x2 - x1) as f64;
+                let m = (y2 - y1) as f32 / (x2 - x1) as f32;
 
                 for y in y1.min(y2).max(0)..=y1.max(y2).min(screen_height as i64 - 1) {
-                    let x = ((y - y1) as f64 / m).round() as i64 + x1;
+                    let x = ((y - y1) as f32 / m).round() as i64 + x1;
                     let row = &mut self.horizonal_line_buffer[y as usize];
                     if row.0 == i64::MAX {
                         *row = (x, x)
@@ -190,9 +211,9 @@ impl Rasterable for Raster {
 
             projector.prepare_z_compute(tri, tri_proj);
 
-            for y in y_min..=y_max {
-                let (x_min, x_max) = {
-                    let (min, max) = self.horizonal_line_buffer[y];
+            for screen_y in y_min..=y_max {
+                let (screen_x_min, screen_x_max) = {
+                    let (min, max) = self.horizonal_line_buffer[screen_y];
                     if min < 0 && max < 0 || min >= screen_width as i64 && max >= screen_width as i64
                     {
                         continue;
@@ -203,21 +224,46 @@ impl Rasterable for Raster {
                     )
                 };
 
-                projector.set_y((y as f64 + 0.5) / (screen_height as f64));
+                let viewport_y = (screen_y as f32 + 0.5) / (screen_height as f32);
 
-                let z_slice = self.z_buffer.get_range_mut(y, x_min..=x_max);
-                let pixel_slice = screen_buffer.get_range_mut(y, x_min..=x_max);
+                projector.set_y(viewport_y);
 
-                for (i, (last_z, pixel)) in
+                let z_slice = self.z_buffer.get_range_mut(screen_y, screen_x_min..=screen_x_max);
+                let pixel_slice = screen_buffer.get_range_mut(screen_y, screen_x_min..=screen_x_max);
+
+                for (i, (buffer_viewport_z, pixel)) in
                     z_slice.iter_mut().zip(pixel_slice.iter_mut()).enumerate()
                 {
-                    let z = projector.compute_z(((x_min + i) as f64 + 0.5) / (screen_width as f64));
-                    if z > *last_z {
+                    let viewport_x = ((screen_x_min + i) as f32 + 0.5) / (screen_width as f32);
+                    let viewport_z = projector.compute_z(viewport_x);
+
+                    if viewport_z > *buffer_viewport_z || viewport_z < 0.0 {
                         continue;
                     }
 
-                    *last_z = z;
-                    *pixel = tri.color;
+                    *buffer_viewport_z = viewport_z;
+
+                    let pixel_point = light_position - projector.screen_space_to_world_space(Vector3::new(
+                        viewport_x,
+                        viewport_y,
+                        viewport_z,
+                    ));
+
+                    // shading
+                    
+                    // TODO: optimize this
+
+                    let pixel_point_distance = pixel_point.magnitude();
+
+                    let light_direction_factor = tri.normal.dot(pixel_point) / pixel_point_distance;
+                    let light_intensity_factor = ((pixel_point_distance - light.offset).max(0.0) * light_intensity_recip + 1.0).powi(2).recip();
+                    let pixel_brightness = light_direction_factor * light_intensity_factor;
+
+                    *pixel = Color::new(
+                        (tri_color_r * pixel_brightness) as u8,
+                        (tri_color_g * pixel_brightness) as u8,
+                        (tri_color_b * pixel_brightness) as u8,
+                    );
                 }
             }
 
@@ -305,11 +351,11 @@ impl<T: Rasterable> Rasterable for Antialias<T> {
                 .area(sample_size * x, sample_size * y, sample_size, sample_size)
                 .flatten()
                 .fold((0_u16, 0_u16, 0_u16), |(sr, sg, sb), color| {
-                    let (r, g, b) = (*color).rgb();
-                    (sr + r as u16, sg + g as u16, sb + b as u16)
+                    
+                    (sr + color.r as u16, sg + color.g as u16, sb + color.b as u16)
                 });
             let sample_area = (sample_size * sample_size) as u16;
-            Color::from_rgb(
+            Color::new(
                 (sr / sample_area) as u8,
                 (sg / sample_area) as u8,
                 (sb / sample_area) as u8,
@@ -319,42 +365,34 @@ impl<T: Rasterable> Rasterable for Antialias<T> {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
-pub struct Color(u32);
+pub struct Color {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
 
 impl Color {
 
-    pub const BLACK: Color = Color(0x000000);
-    pub const WHITE: Color = Color(0xFFFFFF);
-    pub const RED: Color = Color(0xFF0000);
-    pub const GREEN: Color = Color(0x00FF00);
-    pub const BLUE: Color = Color(0x0000FF);
+    pub const BLACK: Color = Color::from_u32(0x000000);
+    pub const WHITE: Color = Color::from_u32(0xFFFFFF);
+    pub const RED: Color = Color::from_u32(0xFF0000);
+    pub const GREEN: Color = Color::from_u32(0x00FF00);
+    pub const BLUE: Color = Color::from_u32(0x0000FF);
 
-    pub const fn new(color: u32) -> Color {
-        Color(color)
+    pub const fn new(r: u8, g: u8, b: u8) -> Color {
+        Color { r, g, b }
     }
 
-    pub const fn from_rgb(r: u8, g: u8, b: u8) -> Color {
-        Color((r as u32) << 16 | (g as u32) << 8 | b as u32)
-    }
-
-    pub const fn r(self) -> u8 {
-        (self.0 >> 16) as u8
-    }
-
-    pub const fn g(self) -> u8 {
-        (self.0 >> 8) as u8
-    }
-
-    pub const fn b(self) -> u8 {
-        self.0 as u8
+    pub const fn from_u32(color: u32) -> Color {
+        Color {
+            r: ((color >> 16) & 0xFF) as u8,
+            g: ((color >> 8) & 0xFF) as u8,
+            b: (color & 0xFF) as u8,
+        }
     }
 
     pub const fn u32(self) -> u32 {
-        self.0
-    }
-
-    pub const fn rgb(self) -> (u8, u8, u8) {
-        (self.r(), self.g(), self.b())
+        (self.r as u32) << 16 | (self.g as u32) << 8 | self.b as u32
     }
 }
 

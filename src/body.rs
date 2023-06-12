@@ -247,7 +247,7 @@ pub const BODY_UNIT_GEOMETRY: [Triangle; 12] = [
                 z: -1.000,
             },
         ],
-        color: Color::from_rgb(255, 000, 255),
+        color: Color::new(255, 000, 255),
     },
     Triangle {
         // Left 1
@@ -273,7 +273,7 @@ pub const BODY_UNIT_GEOMETRY: [Triangle; 12] = [
                 z: -1.000,
             },
         ],
-        color: Color::from_rgb(255, 000, 255),
+        color: Color::new(255, 000, 255),
     },
     Triangle {
         // Up 0
@@ -351,7 +351,7 @@ pub const BODY_UNIT_GEOMETRY: [Triangle; 12] = [
                 z: -1.000,
             },
         ],
-        color: Color::from_rgb(000, 255, 255),
+        color: Color::new(000, 255, 255),
     },
     Triangle {
         // Down 1
@@ -377,6 +377,6 @@ pub const BODY_UNIT_GEOMETRY: [Triangle; 12] = [
                 z: -1.000,
             },
         ],
-        color: Color::from_rgb(000, 255, 255),
+        color: Color::new(000, 255, 255),
     },
 ];

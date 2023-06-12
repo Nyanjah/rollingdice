@@ -1,5 +1,5 @@
 use crate::{
-    raster::{Triangle, TriangleProjection, Viewport, ViewportProjector},
+    raster::{Triangle, TriangleProjection, Viewport, ViewportProjector, Color},
     transform::*,
 };
 
@@ -13,7 +13,7 @@ impl Viewport for OrthographicCamera {
 
     fn projector(&self, screen_width: u16, screen_height: u16) -> Self::Projector {
         OrthographicProjector {
-            size: Vector2::new(screen_width as f64, screen_height as f64),
+            size: Vector2::new(screen_width as f32, screen_height as f32),
             ..Default::default()
         }
     }
@@ -34,7 +34,7 @@ pub struct OrthographicProjector {
     size: Vector2,
     z_origin: Vector3,
     z_change: Vector3,
-    z_y: f64,
+    z_y: f32,
 }
 
 impl ViewportProjector for OrthographicProjector {
@@ -59,12 +59,20 @@ impl ViewportProjector for OrthographicProjector {
         };
     }
 
-    fn set_y(&mut self, y: f64) {
+    fn set_y(&mut self, y: f32) {
         self.z_y = self.z_origin.z + (y - self.z_origin.y) * self.z_change.y
     }
 
-    fn compute_z(&self, x: f64) -> f64 {
+    fn compute_z(&self, x: f32) -> f32 {
         self.z_y + (x - self.z_origin.x) * self.z_change.x
+    }
+
+    fn screen_space_to_world_space(&self, point: Vector3) -> Vector3 {
+        Vector3::new(
+            (point.x - 0.5) * self.size.x,
+            (0.5 - point.y) * self.size.y,
+            point.z,
+        )
     }
 }
 
@@ -86,11 +94,11 @@ impl Viewport for PerspectiveCamera {
     type Projector = PerspectiveProjector;
 
     fn projector(&self, screen_width: u16, screen_height: u16) -> Self::Projector {
-        let vertical_tan_half_fov = 35.0f64.to_radians().tan();
+        let vertical_tan_half_fov = 35.0f32.to_radians().tan();
 
         PerspectiveProjector {
             tan_half_fov: Vector2::new(
-                (screen_width as f64 / screen_height as f64) * vertical_tan_half_fov,
+                vertical_tan_half_fov * (screen_width as f32 / screen_height as f32),
                 vertical_tan_half_fov,
             ),
             z_cutoff: 0.1,
@@ -102,10 +110,11 @@ impl Viewport for PerspectiveCamera {
 #[derive(Default)]
 pub struct PerspectiveProjector {
     tan_half_fov: Vector2,
-    z_cutoff: f64,
+    z_cutoff: f32,
     z_plane_origin: Vector3,
     z_plane_normal: Vector3,
-    y: f64,
+    color: Color,
+    y: f32,
 }
 
 impl PerspectiveProjector {
@@ -113,8 +122,8 @@ impl PerspectiveProjector {
         let tri_proj = TriangleProjection {
             points: tri.points.map(|point| {
                 Vector3::new(
-                    0.5 * (1.0 + point.x / (self.tan_half_fov.x * point.z.abs())),
-                    0.5 * (1.0 - point.y / (self.tan_half_fov.y * point.z.abs())),
+                    0.5 * (1.0 + point.x / (self.tan_half_fov.x * point.z)),
+                    0.5 * (1.0 - point.y / (self.tan_half_fov.y * point.z)),
                     point.z - self.z_cutoff,
                 )
             }),
@@ -186,20 +195,29 @@ impl ViewportProjector for PerspectiveProjector {
     fn prepare_z_compute(&mut self, scene_tri: &Triangle, _: &TriangleProjection) {
         self.z_plane_origin = scene_tri.points[0];
         self.z_plane_normal = scene_tri.normal;
+        self.color = scene_tri.color;
     }
 
-    fn set_y(&mut self, y: f64) {
+    fn set_y(&mut self, y: f32) {
         self.y = y;
     }
 
-    fn compute_z(&self, x: f64) -> f64 {
+    fn compute_z(&self, x: f32) -> f32 {
         let y = self.y;
         let point = Vector3::new(
-            self.z_cutoff * self.tan_half_fov.x * (2.0 * x - 1.0),
-            self.z_cutoff * self.tan_half_fov.y * (1.0 - 2.0 * y),
-            self.z_cutoff,
+            self.tan_half_fov.x * (2.0 * x - 1.0),
+            self.tan_half_fov.y * (1.0 - 2.0 * y),
+            1.0,
         );
 
-        self.z_plane_origin.dot(self.z_plane_normal) / point.dot(self.z_plane_normal)
+        self.z_plane_origin.dot(self.z_plane_normal) / (self.z_cutoff * point.dot(self.z_plane_normal)) - self.z_cutoff
+    }
+
+    fn screen_space_to_world_space(&self, point: Vector3) -> Vector3 {
+        Vector3::new(
+            self.tan_half_fov.x * (2.0 * point.x - 1.0),
+            self.tan_half_fov.y * (1.0 - 2.0 * point.y),
+            1.0,
+        ).unit() * (point.z + self.z_cutoff)
     }
 }
